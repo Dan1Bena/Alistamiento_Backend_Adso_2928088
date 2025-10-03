@@ -1,5 +1,5 @@
 const db = require('../config/conexion_db');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 
 class UsuariosController {
     //Obtener Todos Los Usuarios Con Su Rol

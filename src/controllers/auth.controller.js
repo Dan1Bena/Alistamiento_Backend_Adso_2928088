@@ -1,6 +1,6 @@
 const db = require('../config/conexion_db');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 
 class AuthController {
     async login(req, res) {
@@ -28,7 +28,7 @@ class AuthController {
                  FROM roles r
                  JOIN rol_permiso rp ON r.id_rol = rp.id_rol
                  JOIN permisos p ON rp.id_permiso = p.id_permiso
-                 WHERE r.id_rol = ?`, 
+                 WHERE r.id_rol = ?`,
                 [usuario.id_rol]
             );
 
@@ -36,7 +36,7 @@ class AuthController {
             const token = jwt.sign(
                 { id: usuario.id_usuario, rol: usuarion.id_rol },
                 'secreto_super_seguro',
-                {expiresIn: '2h' }
+                { expiresIn: '2h' }
             );
 
             res.json({

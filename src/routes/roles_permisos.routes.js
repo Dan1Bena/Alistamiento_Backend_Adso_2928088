@@ -1,8 +1,8 @@
 const express = require('express');
-const RolesPermisoController = require('../controllers/roles_permisos.controller');
+const rolPermisoController = require('../controllers/roles_permisos.controller');
 
 const router = express.Router();
-const rolPermisoController = new RolPermisoController();
+
 
 router.get('/', (req, res) => rolPermisoController.obtenerRolPermisos(req, res));
 router.get('/rol/idrol', (req, res) => rolPermisoController.obtenerPermisosDeRol(req, res));
