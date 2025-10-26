@@ -16,9 +16,12 @@ CREATE TABLE rol_permiso (
     id_rol_permiso INT AUTO_INCREMENT PRIMARY KEY,
     id_rol INT,
     permiso_id INT,
-    FOREING KEY (id_rol) REFERENCES roles(id_rol),
-    FOREING KEY (permiso_rol) REFERENCES permisos(id_permiso)
+    FOREIGN KEY (id_rol) REFERENCES roles(id_rol),
+    FOREIGN KEY (permiso_id) REFERENCES permisos(id_permiso)
 );
+
+
+DROP TABLE rol_permiso;
 
 CREATE TABLE usuarios (
     id_usuario INT AUTO_INCREMENT PRIMARY KEY,
@@ -26,7 +29,7 @@ CREATE TABLE usuarios (
     email VARCHAR (300),
     clave VARCHAR (500),
     id_rol INT,
-    FOREING KEY (id_rol) REFERENCES roles(id_rol)
+    FOREIGN KEY (id_rol) REFERENCES roles(id_rol)
 );
 
 -- insertar roles
@@ -43,14 +46,14 @@ INSERT INTO permisos (nombre, descripcion) VALUES
 
 -- Asignar permisos al rol Administrador (id_rol = 1)
 INSERT INTO rol_permiso (id_rol, permiso_id) VALUES
-(1, 1) -- crear
-(1, 2) -- leer
-(1, 3)--actualizar
-(1, 4) --Eliminar
+(1, 1), -- crear
+(1, 2), -- leer
+(1, 3),-- actualizar
+(1, 4); -- Eliminar
 
 -- Asignar permisos al rol Empleado (id_rol = 2), solo leer
 INSERT INTO rol_permiso (id_rol, permiso_id) VALUES
-(2, 2),
+(2, 2);
 
 -- Insertar usuario Admin (contraseña: 123456)
 INSERT INTO usuarios (nombre, email, clave, id_rol)

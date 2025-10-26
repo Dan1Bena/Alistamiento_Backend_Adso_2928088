@@ -27,14 +27,14 @@ class AuthController {
                 `SELECT r.nombre AS rol, p.nombre AS permiso
                  FROM roles r
                  JOIN rol_permiso rp ON r.id_rol = rp.id_rol
-                 JOIN permisos p ON rp.id_permiso = p.id_permiso
+                 JOIN permisos p ON rp.permiso_id = p.id_permiso
                  WHERE r.id_rol = ?`,
                 [usuario.id_rol]
             );
 
             //Generar JWT
             const token = jwt.sign(
-                { id: usuario.id_usuario, rol: usuarion.id_rol },
+                { id: usuario.id_usuario, rol: usuario.id_rol },
                 'secreto_super_seguro',
                 { expiresIn: '2h' }
             );
@@ -42,11 +42,11 @@ class AuthController {
             res.json({
                 mensaje: 'Inicio de Sesión Exitoso',
                 token,
-                usuarion: {
+                usuario: {
                     id: usuario.id_usuario,
                     nombre: usuario.nombre,
                     email: usuario.email,
-                    rol: rolDatos[0]?.rol || 'Sin Rol',
+                    rol: rolDatos[0]?.rol || 'Sin rol',
                     permisos: rolDatos.map(p => p.permiso)
                 }
             });
