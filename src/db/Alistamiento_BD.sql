@@ -2,11 +2,11 @@
 -- Crea la base de datos Alistamiento_DB y todas las tablas y relaciones según el modelo entregado.
 -- Motor: InnoDB, Codificación: utf8mb4
 
-DROP DATABASE IF EXISTS Alistamiento_DB;
-CREATE DATABASE Alistamiento_DB
+DROP DATABASE IF EXISTS alistamiento_db;
+CREATE DATABASE alistamiento_db
 DEFAULT CHARACTER SET = utf8mb4
 DEFAULT COLLATE = utf8mb4_general_ci;
-USE Alistamiento_DB;
+USE alistamiento_db;
 
 -- ======================
 -- Tablas (sin FK todavía)
@@ -22,7 +22,7 @@ CREATE TABLE roles (
   nombre VARCHAR(100) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE roles_permiso (
+CREATE TABLE roles_permisos (
   id_roles_permiso INT AUTO_INCREMENT PRIMARY KEY,
   id_permiso INT NOT NULL,
   id_rol INT NOT NULL
@@ -266,7 +266,7 @@ SHOW TABLES;
 
 DESCRIBE permisos;
 DESCRIBE roles;
-DESCRIBE roles_permiso;
+DESCRIBE roles_permisos;
 DESCRIBE instructores;
 DESCRIBE instructor_ficha;
 DESCRIBE programa_formacion;

@@ -5,9 +5,9 @@ class RolesController {
     try {
       const [roles] = await db.query(`
         SELECT r.id_rol, r.nombre,
-        COUNT(u.id_usuario) AS cantidad_usuarios
+        COUNT(u.id_intructor) AS cantidad_intructores
         FROM roles r
-        LEFT JOIN usuarios u ON u.id_rol = r.id_rol
+        LEFT JOIN intructores u ON u.id_rol = r.id_rol
         GROUP BY r.id_rol, r.nombre
       `);
       res.json(roles);
@@ -30,8 +30,8 @@ class RolesController {
       // Traemos los permisos de ese rol
       const [permisos] = await db.query(`
         SELECT p.id_permiso, p.nombre
-        FROM rol_permiso rp
-        JOIN permisos p ON rp.permiso_id = p.id_permiso
+        FROM roles_permisos rp
+        JOIN permisos p ON rp.id_permiso = p.id_permiso
         WHERE rp.id_rol = ?`,
         [rol.id_rol]
       );
@@ -61,7 +61,7 @@ class RolesController {
       if (permisos && permisos.length > 0) {
         const values = permisos.map(id_permiso => [idRol, id_permiso]);
         await connection.query(
-          'INSERT INTO rol_permiso (id_rol, permiso_id) VALUES ?',
+          'INSERT INTO roles_permisos (id_rol, id_permiso) VALUES ?',
           [values]
         );
       }
@@ -90,13 +90,13 @@ class RolesController {
       );
 
       // Borramos permisos anteriores
-      await connection.query('DELETE FROM rol_permiso WHERE id_rol = ?', [id]);
+      await connection.query('DELETE FROM roles_permisos WHERE id_rol = ?', [id]);
 
       // Insertamos los nuevos permisos
       if (permisos && permisos.length > 0) {
         const values = permisos.map(id_permiso => [id, id_permiso]);
         await connection.query(
-          'INSERT INTO rol_permiso (id_rol, permiso_id) VALUES ?',
+          'INSERT INTO roles_permisos (id_rol, id_permiso) VALUES ?',
           [values]
         );
       }
@@ -118,7 +118,7 @@ class RolesController {
       await connection.beginTransaction();
 
       // Eliminar permisos asociados
-      await connection.query('DELETE FROM rol_permiso WHERE id_rol = ?', [id]);
+      await connection.query('DELETE FROM roles_permisos WHERE id_rol = ?', [id]);
 
       // Eliminar rol
       await connection.query('DELETE FROM roles WHERE id_rol = ?', [id]);
