@@ -53,18 +53,18 @@ class InstructoresController {
 
     //Agregar Un Usuario Nuevo
     async agregarInstructor(req, res) {
-        const { nombre, email, contrasena, id_rol } = req.body;
+        const { id_rol, nombre, email, contrasena, cedula, perfil_profesional } = req.body;
         try {
             // Cifrar contrasena
             const hash = await bcrypt.hash(contrasena, 10);
 
             await db.query(
-                'INSERT INTO instructores (nombre, email, contrasena, id_rol) VALUES (?, ?, ?, ?)',
-                [nombre, email, hash, id_rol]
+                'INSERT INTO instructores (id_rol, nombre, email, contrasena, cedula, perfil_profesional) VALUES (?, ?, ?, ?, ?, ?)',
+                [id_rol, nombre, email, hash, cedula, perfil_profesional]
             );
             res.json({ mensaje: 'Instructor agregado exitosamente' });
         } catch (error) {
-            res.status(500).json({ mensaje: 'Error al agregar usuario' });
+            res.status(500).json({ mensaje: 'Error al agregar instructor' });
         }
     }
 
