@@ -8,7 +8,7 @@ class AuthController {
 
         try {
             //Buscar Usuario Por Email
-            const [usuarios] = await db.query('SELECT * FROM usuarios WHERE email = ?', [email]);
+            const [usuarios] = await db.query('SELECT * FROM instructores WHERE email = ?', [email]);
 
             if (usuarios.length === 0) {
                 return res.status(401).json({ error: 'Usuario No Encontrado' });

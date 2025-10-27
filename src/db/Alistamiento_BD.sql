@@ -12,23 +12,23 @@ USE Alistamiento_DB;
 -- Tablas (sin FK todavía)
 -- ======================
 
-CREATE TABLE Permisos (
+CREATE TABLE permisos (
   id_permiso INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(100) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE Roles (
+CREATE TABLE roles (
   id_rol INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(100) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE Roles_permiso (
+CREATE TABLE roles_permiso (
   id_roles_permiso INT AUTO_INCREMENT PRIMARY KEY,
   id_permiso INT NOT NULL,
   id_rol INT NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE Instructores (
+CREATE TABLE instructores (
   id_instructor INT AUTO_INCREMENT PRIMARY KEY,
   id_rol INT, -- FK a Roles
   nombre VARCHAR(150) NOT NULL,
@@ -38,13 +38,13 @@ CREATE TABLE Instructores (
   perfil_profesional VARCHAR(200)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE Instructor_ficha (
+CREATE TABLE instructor_ficha (
   id_instructor_ficha INT AUTO_INCREMENT PRIMARY KEY,
   id_instructor INT NOT NULL,
   id_ficha INT NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE Programa_formacion (
+CREATE TABLE programa_formacion (
   id_programa INT AUTO_INCREMENT PRIMARY KEY,
   id_competencia INT,    -- FK potencial a Competencia
   id_proyecto INT,       -- FK potencial a Proyectos
@@ -58,7 +58,7 @@ CREATE TABLE Programa_formacion (
   horas_etapa_productiva INT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE Ficha (
+CREATE TABLE ficha (
   id_ficha INT AUTO_INCREMENT PRIMARY KEY,
   id_programa INT, -- FK a Programa_formacion
   codigo_ficha VARCHAR(100),
@@ -70,7 +70,7 @@ CREATE TABLE Ficha (
   cantidad_trimestre INT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE Competencia (
+CREATE TABLE competencia (
   id_competencia INT AUTO_INCREMENT PRIMARY KEY,
   id_programa INT, -- FK a Programa_formacion
   id_rap INT,      -- FK a RAPs
@@ -81,12 +81,12 @@ CREATE TABLE Competencia (
   unidad_competencia VARCHAR(150)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE Fases (
+CREATE TABLE fases (
   id_fase INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(150) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE Proyectos (
+CREATE TABLE proyectos (
   id_proyecto INT AUTO_INCREMENT PRIMARY KEY,
   id_programa INT, -- FK a Programa_formacion
   id_fase INT,     -- FK a Fases
@@ -97,14 +97,14 @@ CREATE TABLE Proyectos (
   regional VARCHAR(150)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE Planeacion_Pedagogica (
+CREATE TABLE planeacion_pedagogica (
   id_planeacion INT AUTO_INCREMENT PRIMARY KEY,
   id_ficha INT, -- FK a Ficha
   observaciones TEXT,
   fecha_creacion DATE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE Guia_Aprendizaje (
+CREATE TABLE guia_aprendizaje (
   id_guia INT AUTO_INCREMENT PRIMARY KEY,
   id_planeacion INT, -- FK a Planeacion_Pedagogica
   titulo VARCHAR(200),
@@ -112,33 +112,33 @@ CREATE TABLE Guia_Aprendizaje (
   fecha_creacion DATE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE Trimestre (
+CREATE TABLE trimestre (
   id_trimestre INT AUTO_INCREMENT PRIMARY KEY,
   id_planeacion INT, -- FK a Planeacion_Pedagogica
   no_trimestre INT,
   fase VARCHAR(100)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE RAPs (
+CREATE TABLE raps (
   id_rap INT AUTO_INCREMENT PRIMARY KEY,
   denominacion VARCHAR(200),
   duracion INT,
   codigo VARCHAR(100)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE Conocimiento_Proceso (
+CREATE TABLE conocimiento_proceso (
   id_conocimiento_proceso INT AUTO_INCREMENT PRIMARY KEY,
   id_rap INT, -- FK a RAPs
   nombre VARCHAR(200) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE Conocimiento_Saber (
+CREATE TABLE conocimiento_saber (
   id_conocimiento_saber INT AUTO_INCREMENT PRIMARY KEY,
   id_rap INT, -- FK a RAPs
   nombre VARCHAR(200) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE Criterios_Evaluacion (
+CREATE TABLE criterios_evaluacion (
   id_criterio_evaluacion INT AUTO_INCREMENT PRIMARY KEY,
   id_rap INT, -- FK a RAPs
   nombre VARCHAR(200) NOT NULL
@@ -149,94 +149,94 @@ CREATE TABLE Criterios_Evaluacion (
 -- ======================
 
 -- Roles_permiso -> Permisos, Roles
-ALTER TABLE Roles_permiso
+ALTER TABLE roles_permiso
   ADD CONSTRAINT fk_rolespermiso_permiso
-    FOREIGN KEY (id_permiso) REFERENCES Permisos (id_permiso)
+    FOREIGN KEY (id_permiso) REFERENCES permisos (id_permiso)
     ON DELETE RESTRICT ON UPDATE CASCADE,
   ADD CONSTRAINT fk_rolespermiso_rol
-    FOREIGN KEY (id_rol) REFERENCES Roles (id_rol)
+    FOREIGN KEY (id_rol) REFERENCES roles (id_rol)
     ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- Instructores -> Roles
-ALTER TABLE Instructores
+ALTER TABLE instructores
   ADD CONSTRAINT fk_instructores_rol
-    FOREIGN KEY (id_rol) REFERENCES Roles (id_rol)
+    FOREIGN KEY (id_rol) REFERENCES roles (id_rol)
     ON DELETE SET NULL ON UPDATE CASCADE;
 
--- Instructor_ficha -> Instructores, Ficha
-ALTER TABLE Instructor_ficha
+-- instructor_ficha -> instructores, Ficha
+ALTER TABLE instructor_ficha
   ADD CONSTRAINT fk_instructorficha_instructor
-    FOREIGN KEY (id_instructor) REFERENCES Instructores (id_instructor)
+    FOREIGN KEY (id_instructor) REFERENCES instructores (id_instructor)
     ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT fk_instructorficha_ficha
     FOREIGN KEY (id_ficha) REFERENCES Ficha (id_ficha)
     ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Ficha -> Programa_formacion
-ALTER TABLE Ficha
+ALTER TABLE ficha
   ADD CONSTRAINT fk_ficha_programa
-    FOREIGN KEY (id_programa) REFERENCES Programa_formacion (id_programa)
+    FOREIGN KEY (id_programa) REFERENCES programa_formacion (id_programa)
     ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Programa_formacion -> (id_competencia) referencia a Competencia si existe
-ALTER TABLE Programa_formacion
+ALTER TABLE programa_formacion
   ADD CONSTRAINT fk_programa_competencia
-    FOREIGN KEY (id_competencia) REFERENCES Competencia (id_competencia)
+    FOREIGN KEY (id_competencia) REFERENCES competencia (id_competencia)
     ON DELETE SET NULL ON UPDATE CASCADE,
   ADD CONSTRAINT fk_programa_proyecto
-    FOREIGN KEY (id_proyecto) REFERENCES Proyectos (id_proyecto)
+    FOREIGN KEY (id_proyecto) REFERENCES proyectos (id_proyecto)
     ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Competencia -> Programa_formacion, RAPs
-ALTER TABLE Competencia
+ALTER TABLE competencia
   ADD CONSTRAINT fk_competencia_programa
-    FOREIGN KEY (id_programa) REFERENCES Programa_formacion (id_programa)
+    FOREIGN KEY (id_programa) REFERENCES programa_formacion (id_programa)
     ON DELETE SET NULL ON UPDATE CASCADE,
   ADD CONSTRAINT fk_competencia_rap
-    FOREIGN KEY (id_rap) REFERENCES RAPs (id_rap)
+    FOREIGN KEY (id_rap) REFERENCES raps (id_rap)
     ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Proyectos -> Programa_formacion, Fases
-ALTER TABLE Proyectos
+ALTER TABLE proyectos
   ADD CONSTRAINT fk_proyectos_programa
-    FOREIGN KEY (id_programa) REFERENCES Programa_formacion (id_programa)
+    FOREIGN KEY (id_programa) REFERENCES programa_formacion (id_programa)
     ON DELETE SET NULL ON UPDATE CASCADE,
   ADD CONSTRAINT fk_proyectos_fase
-    FOREIGN KEY (id_fase) REFERENCES Fases (id_fase)
+    FOREIGN KEY (id_fase) REFERENCES fases (id_fase)
     ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Planeacion_Pedagogica -> Ficha
-ALTER TABLE Planeacion_Pedagogica
+ALTER TABLE planeacion_pedagogica
   ADD CONSTRAINT fk_planeacion_ficha
-    FOREIGN KEY (id_ficha) REFERENCES Ficha (id_ficha)
+    FOREIGN KEY (id_ficha) REFERENCES ficha (id_ficha)
     ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Guia_Aprendizaje -> Planeacion_Pedagogica
-ALTER TABLE Guia_Aprendizaje
+ALTER TABLE guia_aprendizaje
   ADD CONSTRAINT fk_guia_planeacion
-    FOREIGN KEY (id_planeacion) REFERENCES Planeacion_Pedagogica (id_planeacion)
+    FOREIGN KEY (id_planeacion) REFERENCES planeacion_pedagogica (id_planeacion)
     ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Trimestre -> Planeacion_Pedagogica
-ALTER TABLE Trimestre
+ALTER TABLE trimestre
   ADD CONSTRAINT fk_trimestre_planeacion
-    FOREIGN KEY (id_planeacion) REFERENCES Planeacion_Pedagogica (id_planeacion)
+    FOREIGN KEY (id_planeacion) REFERENCES planeacion_pedagogica (id_planeacion)
     ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Conocimiento_Proceso, Conocimiento_Saber, Criterios_Evaluacion -> RAPs
-ALTER TABLE Conocimiento_Proceso
+ALTER TABLE conocimiento_proceso
   ADD CONSTRAINT fk_conproc_rap
-    FOREIGN KEY (id_rap) REFERENCES RAPs (id_rap)
+    FOREIGN KEY (id_rap) REFERENCES raps (id_rap)
     ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE Conocimiento_Saber
+ALTER TABLE conocimiento_saber
   ADD CONSTRAINT fk_consaber_rap
-    FOREIGN KEY (id_rap) REFERENCES RAPs (id_rap)
+    FOREIGN KEY (id_rap) REFERENCES raps (id_rap)
     ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE Criterios_Evaluacion
+ALTER TABLE criterios_evaluacion
   ADD CONSTRAINT fk_criterios_rap
-    FOREIGN KEY (id_rap) REFERENCES RAPs (id_rap)
+    FOREIGN KEY (id_rap) REFERENCES raps (id_rap)
     ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Relaciones adicionales solicitadas (FK declaradas aunque no estén conectadas visualmente)
@@ -246,17 +246,17 @@ ALTER TABLE Criterios_Evaluacion
 -- ======================
 -- Indexes (opcional, para mejorar consultas sobre FKs)
 -- ======================
-CREATE INDEX idx_ficha_programa ON Ficha (id_programa);
-CREATE INDEX idx_competencia_programa ON Competencia (id_programa);
-CREATE INDEX idx_competencia_rap ON Competencia (id_rap);
-CREATE INDEX idx_proyectos_programa ON Proyectos (id_programa);
-CREATE INDEX idx_proyectos_fase ON Proyectos (id_fase);
-CREATE INDEX idx_planeacion_ficha ON Planeacion_Pedagogica (id_ficha);
-CREATE INDEX idx_guia_planeacion ON Guia_Aprendizaje (id_planeacion);
-CREATE INDEX idx_trimestre_planeacion ON Trimestre (id_planeacion);
-CREATE INDEX idx_conproc_rap ON Conocimiento_Proceso (id_rap);
-CREATE INDEX idx_consaber_rap ON Conocimiento_Saber (id_rap);
-CREATE INDEX idx_criterios_rap ON Criterios_Evaluacion (id_rap);
+CREATE INDEX idx_ficha_programa ON ficha (id_programa);
+CREATE INDEX idx_competencia_programa ON competencia (id_programa);
+CREATE INDEX idx_competencia_rap ON competencia (id_rap);
+CREATE INDEX idx_proyectos_programa ON proyectos (id_programa);
+CREATE INDEX idx_proyectos_fase ON proyectos (id_fase);
+CREATE INDEX idx_planeacion_ficha ON planeacion_pedagogica (id_ficha);
+CREATE INDEX idx_guia_planeacion ON guia_aprendizaje (id_planeacion);
+CREATE INDEX idx_trimestre_planeacion ON trimestre (id_planeacion);
+CREATE INDEX idx_conproc_rap ON conocimiento_proceso (id_rap);
+CREATE INDEX idx_consaber_rap ON conocimiento_saber (id_rap);
+CREATE INDEX idx_criterios_rap ON criterios_evaluacion (id_rap);
 
 -- ======================
 -- Verificación final
@@ -264,20 +264,20 @@ CREATE INDEX idx_criterios_rap ON Criterios_Evaluacion (id_rap);
 
 SHOW TABLES;
 
-DESCRIBE Permisos;
-DESCRIBE Roles;
-DESCRIBE Roles_permiso;
-DESCRIBE Instructores;
-DESCRIBE Instructor_ficha;
-DESCRIBE Programa_formacion;
-DESCRIBE Ficha;
-DESCRIBE Competencia;
-DESCRIBE Fases;
-DESCRIBE Proyectos;
-DESCRIBE Planeacion_Pedagogica;
-DESCRIBE Guia_Aprendizaje;
-DESCRIBE Trimestre;
-DESCRIBE RAPs;
-DESCRIBE Conocimiento_Proceso;
-DESCRIBE Conocimiento_Saber;
-DESCRIBE Criterios_Evaluacion;
+DESCRIBE permisos;
+DESCRIBE roles;
+DESCRIBE roles_permiso;
+DESCRIBE instructores;
+DESCRIBE instructor_ficha;
+DESCRIBE programa_formacion;
+DESCRIBE ficha;
+DESCRIBE competencia;
+DESCRIBE fases;
+DESCRIBE proyectos;
+DESCRIBE planeacion_pedagogica;
+DESCRIBE guia_aprendizaje;
+DESCRIBE trimestre;
+DESCRIBE raps;
+DESCRIBE conocimiento_proceso;
+DESCRIBE conocimiento_saber;
+DESCRIBE criterios_evaluacion;
