@@ -266,7 +266,7 @@ SHOW TABLES;
 
 DESCRIBE permisos;
 DESCRIBE roles;
-DESCRIBE roles_permiso;
+DESCRIBE roles_permisos;
 DESCRIBE instructores;
 DESCRIBE instructor_ficha;
 DESCRIBE programa_formacion;
