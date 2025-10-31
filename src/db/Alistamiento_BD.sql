@@ -50,7 +50,7 @@ CREATE TABLE programa_formacion (
   id_proyecto INT,       -- FK potencial a Proyectos
   codigo_programa VARCHAR(100),
   nombre_programa VARCHAR(150) NOT NULL,
-  vigencia VARCHAR(50),
+  vigencia VARCHAR(500),
   tipo_programa VARCHAR(80),
   version_programa VARCHAR(50),
   horas_totales INT,
@@ -70,15 +70,14 @@ CREATE TABLE ficha (
   cantidad_trimestre INT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE competencia (
+CREATE TABLE competencias (
   id_competencia INT AUTO_INCREMENT PRIMARY KEY,
   id_programa INT, -- FK a Programa_formacion
   id_rap INT,      -- FK a RAPs
   codigo_norma VARCHAR(100),
-  perfil_instructor VARCHAR(200),
   duracion_maxima INT,
-  nombre_competencia VARCHAR(200),
-  unidad_competencia VARCHAR(150)
+  nombre_competencia VARCHAR(500),
+  unidad_competencia VARCHAR(500)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE fases (
@@ -149,7 +148,7 @@ CREATE TABLE criterios_evaluacion (
 -- ======================
 
 -- Roles_permiso -> Permisos, Roles
-ALTER TABLE roles_permiso
+ALTER TABLE roles_permisos
   ADD CONSTRAINT fk_rolespermiso_permiso
     FOREIGN KEY (id_permiso) REFERENCES permisos (id_permiso)
     ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -181,14 +180,14 @@ ALTER TABLE ficha
 -- Programa_formacion -> (id_competencia) referencia a Competencia si existe
 ALTER TABLE programa_formacion
   ADD CONSTRAINT fk_programa_competencia
-    FOREIGN KEY (id_competencia) REFERENCES competencia (id_competencia)
+    FOREIGN KEY (id_competencia) REFERENCES competencias (id_competencia)
     ON DELETE SET NULL ON UPDATE CASCADE,
   ADD CONSTRAINT fk_programa_proyecto
     FOREIGN KEY (id_proyecto) REFERENCES proyectos (id_proyecto)
     ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Competencia -> Programa_formacion, RAPs
-ALTER TABLE competencia
+ALTER TABLE competencias
   ADD CONSTRAINT fk_competencia_programa
     FOREIGN KEY (id_programa) REFERENCES programa_formacion (id_programa)
     ON DELETE SET NULL ON UPDATE CASCADE,
@@ -247,8 +246,8 @@ ALTER TABLE criterios_evaluacion
 -- Indexes (opcional, para mejorar consultas sobre FKs)
 -- ======================
 CREATE INDEX idx_ficha_programa ON ficha (id_programa);
-CREATE INDEX idx_competencia_programa ON competencia (id_programa);
-CREATE INDEX idx_competencia_rap ON competencia (id_rap);
+CREATE INDEX idx_competencia_programa ON competencias (id_programa);
+CREATE INDEX idx_competencia_rap ON competencias (id_rap);
 CREATE INDEX idx_proyectos_programa ON proyectos (id_programa);
 CREATE INDEX idx_proyectos_fase ON proyectos (id_fase);
 CREATE INDEX idx_planeacion_ficha ON planeacion_pedagogica (id_ficha);
@@ -262,6 +261,10 @@ CREATE INDEX idx_criterios_rap ON criterios_evaluacion (id_rap);
 -- Verificación final
 -- ======================
 
+select * from programa_formacion;
+select * from competencias;
+
+
 SHOW TABLES;
 
 DESCRIBE permisos;
@@ -271,7 +274,7 @@ DESCRIBE instructores;
 DESCRIBE instructor_ficha;
 DESCRIBE programa_formacion;
 DESCRIBE ficha;
-DESCRIBE competencia;
+DESCRIBE competencias;
 DESCRIBE fases;
 DESCRIBE proyectos;
 DESCRIBE planeacion_pedagogica;
