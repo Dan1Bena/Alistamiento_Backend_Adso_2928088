@@ -5,7 +5,7 @@ class PythonService {
     /**
      * Ejecuta el script Python y retorna el resultado
      * @param {string} pdfPath - Ruta absoluta al PDF
-     * @param {string} tipo - 'programa', 'competencias', 'todo'
+     * @param {string} tipo - 'programa', 'competencias', 'proyecto', 'todo'
      * @returns {Promise<Object>} - Resultado parseado
      */
     static ejecutarScript(pdfPath, tipo = 'todo') {

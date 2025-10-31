@@ -2,6 +2,7 @@ import sys
 import json
 from extractors.programa_extractor import extraer_programa
 from extractors.competencias_extractor import extraer_competencias
+from extractors.proyecto_extractor import extraer_proyecto
 
 def procesar_pdf(pdf_path: str, tipo: str) -> dict:
     """
@@ -18,7 +19,10 @@ def procesar_pdf(pdf_path: str, tipo: str) -> dict:
             
         if tipo in ['competencias', 'todo']:
             resultado['competencias'] = extraer_competencias(pdf_path)
-
+            
+        if tipo in ['proyecto', 'todo']:
+            resultado['proyecto'] = extraer_proyecto(pdf_path)
+            
         return {"success": True, "data": resultado}
     
     except Exception as e:
