@@ -21,8 +21,8 @@ class PdfController {
             const pdfPath = req.file.path;
             const tipo = req.body.tipo || 'todo'; // programa, competencias, todo
 
-            console.log(`📄 Procesando PDF: ${pdfPath}`);
-            console.log(`🔍 Tipo de extracción: ${tipo}`);
+            console.log(`Procesando PDF: ${pdfPath}`);
+            console.log(`Tipo de extracción: ${tipo}`);
 
             // Ejecutar script Python
             const resultado = await PythonService.ejecutarScript(pdfPath, tipo);
@@ -56,7 +56,7 @@ class PdfController {
                 ]);
 
                 idPrograma = resultPrograma.insertId;
-                console.log(`✅ Programa guardado con ID: ${idPrograma}`);
+                console.log(`Programa guardado con ID: ${idPrograma}`);
             }
 
             // === GUARDAR COMPETENCIAS ===
@@ -77,7 +77,7 @@ class PdfController {
 
                     idsCompetencias.push(resultComp.insertId);
                 }
-                console.log(`✅ ${idsCompetencias.length} competencias guardadas`);
+                console.log(`${idsCompetencias.length} competencias guardadas`);
             }
 
             // Confirmar transacción
@@ -106,7 +106,7 @@ class PdfController {
                 this.eliminarArchivo(req.file.path);
             }
 
-            console.error('❌ Error procesando PDF:', error);
+            console.error('Error procesando PDF:', error);
 
             res.status(500).json({
                 error: 'Error al procesar el PDF',
@@ -116,6 +116,56 @@ class PdfController {
             connection.release();
         }
     }
+
+    procesarProyecto = async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No se envió archivo' });
+
+        const connection = await db.getConnection();
+        const pdfPath = path.resolve(req.file.path);
+        console.log(`Procesando PDF del proyecto: ${pdfPath}`);
+
+        const resultado = await PythonService.ejecutarScript(pdfPath, 'proyecto');
+
+
+
+        fs.unlinkSync(pdfPath);
+
+        // === GUARDAR PROYECTO ===
+        if (resultado.proyecto && resultado.proyecto.length > 0) {
+            const proy = resultado.proyecto[0];
+            
+            const [rows] = await connection.query(`SELECT id_programa FROM programa_formacion WHERE codigo_programa = ?`, 
+                [proy.codigo_programa]
+            )
+
+            const idPrograma = rows.length > 0 ? rows[0].id_programa : null;
+
+            const [resultProyecto] = await connection.query(`
+                INSERT INTO proyectos 
+                (codigo_proyecto, nombre_proyecto, codigo_programa, 
+                centro_formacion, regional, id_programa)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `, [
+                proy.codigo_proyecto || null,
+                proy.nombre_proyecto || null,
+                proy.codigo_programa || null,
+                proy.centro_formacion || null,
+                proy.regional || null,
+                idPrograma // FK al programa (si se insertó antes)
+            ]);
+
+            const idProyecto = resultProyecto.insertId;
+            console.log(`Proyecto guardado con ID: ${idProyecto}`);
+        }
+
+        return res.status(200).json(resultado);
+    } catch (err) {
+        console.error('Error procesando proyecto:', err);
+        res.status(500).json({ error: err.message });
+    }
+    };
+
 
     /**
      * Extrae el número de horas de un string como "3120 horas"
