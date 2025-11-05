@@ -1,4 +1,4 @@
-#!C:\Users\SENA\Desktop\Alistamiento_Backend_Adso_2928088\.venv\Scripts\python.exe
+#!C:\Users\DELL\Desktop\Alistamiento_Backend_Adso_2928088\.venv\Scripts\python.exe
 """Extract pdf structure in XML format"""
 
 import logging

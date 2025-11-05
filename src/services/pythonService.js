@@ -13,7 +13,8 @@ class PythonService {
             const scriptPath = path.join(__dirname, '../../python/main.py');
 
             // Spawn del proceso Python
-            const python = spawn('python', [scriptPath, pdfPath, tipo]);
+            const pythonPath = path.join(__dirname, '../../.venv/Scripts/python.exe');
+            const python = spawn(pythonPath, [scriptPath, pdfPath, tipo]);
 
             let dataString = '';
             let errorString = '';
@@ -25,8 +26,11 @@ class PythonService {
 
             // Capturar stderr
             python.stderr.on('data', (data) => {
-                errorString += data.toString();
+                const msg = data.toString();
+                console.log("[PYTHON LOG]:", msg.trim()); // Muestra logs en consola Node
+                errorString += msg;
             });
+
 
             // Cuando el proceso termine
             python.on('close', (code) => {

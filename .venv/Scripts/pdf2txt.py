@@ -1,4 +1,4 @@
-#!C:\Users\SENA\Desktop\Alistamiento_Backend_Adso_2928088\.venv\Scripts\python.exe
+#!C:\Users\DELL\Desktop\Alistamiento_Backend_Adso_2928088\.venv\Scripts\python.exe
 """A command line tool for extracting text and images from PDF and
 output it to plain text, html, xml or tags.
 """

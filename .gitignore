@@ -3,8 +3,7 @@ node_modules/
 package-lock.json
 
 #Archivos de entornos
-.env.local
-.entornos.*.local
+.venv/
 
 #Logs
 logs

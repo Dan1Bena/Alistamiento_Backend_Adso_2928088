@@ -42,9 +42,9 @@ def extraer_proyecto(pdf_path: str) -> list:
     """
     
     # Definir los targets de búsqueda
+    TARGET_SECCION = "INFORMACION BASICA DEL PROYECTO"
     TARGET_CODIGO_PROYECTO = "CODIGO PROYECTO SOFIA"
     TARGET_CODIGO_PROGRAMA = "CODIGO DEL PROGRAMA SOFIA"
-    TARGET_VERSION_PROGRAMA = "VERSION DEL PROGRAMA"
     TARGET_CENTRO = "CENTRO DE FORMACION"
     TARGET_REGIONAL = "REGIONAL"
     TARGET_NOMBRE_PROYECTO = "NOMBRE DEL PROYECTO"
@@ -52,120 +52,92 @@ def extraer_proyecto(pdf_path: str) -> list:
     
     registros = []
     registro_actual = {}
-    dentro_seccion_proyecto = False
+    dentro_seccion = False
     
     try:
         with pdfplumber.open(pdf_path) as pdf:
-            for page_num, page in enumerate(pdf.pages, 1):
-                log_debug(f"📄 Procesando página {page_num}")
-                
+            for page in pdf.pages:
                 tablas = page.extract_tables()
-                
-                if not tablas:
-                    log_debug(f"    ⚠️ No se encontraron tablas en página {page_num}")
-                    continue
-                
-                for tabla_num, tabla in enumerate(tablas, 1):
-                    log_debug(f"    📊 Analizando tabla {tabla_num} (filas: {len(tabla)})")
-                    
-                    for fila_num, fila in enumerate(tabla):
+                for tabla in tablas:
+                    for fila in tabla:
                         if not fila or len(fila) < 1:
                             continue
-                        
-                        # Normalizar texto de la celda izquierda y toda la fila
+
                         celda_izq = norm(fila[0] or "")
-                        texto_fila = " ".join([str(c).strip() for c in fila if c]).strip()
-                        texto_norm = norm(texto_fila)
-                        
-                        # Detectar inicio de sección "Información básica del proyecto"
-                        if "INFORMACION BASICA DEL PROYECTO" in texto_norm:
-                            dentro_seccion_proyecto = True
-                            log_debug("    ✅ Sección 'Información básica del proyecto' detectada")
-                            
-                            # Si hay un registro en proceso, guardarlo
-                            if registro_actual:
-                                registros.append(registro_actual)
-                                log_debug(f"    💾 Registro anterior guardado")
-                                registro_actual = {}
+                        texto_celda = " ".join([str(c).strip() for c in fila if c]).strip()
+                        texto_norm = norm(texto_celda)
+
+                        # === Detectar sección ===
+                        if TARGET_SECCION in texto_norm:
+                            dentro_seccion = True
+                            log_debug("Sección 'Información básica del proyecto' detectada")
                             continue
-                        
-                        # Solo procesar si estamos dentro de la sección del proyecto
-                        if not dentro_seccion_proyecto:
+
+                        if not dentro_seccion:
                             continue
-                        
-                        # Detectar fin de sección (cuando aparece otra sección)
-                        if "ESTRUCTURA DEL PROYECTO" in texto_norm or \
-                           "PLANTEAMIENTO DEL PROBLEMA" in texto_norm:
-                            dentro_seccion_proyecto = False
-                            log_debug("    ⏹️ Fin de sección detectado")
+
+                        # === Extracción de campos ===
+                        if TARGET_CODIGO_PROYECTO in texto_norm and TARGET_CODIGO_PROGRAMA in texto_norm:
+
+                            valor_proyecto = None
+                            valor_programa = None
+
+                            # Buscar los valores numéricos (2537295, 228118, etc.)
+                            for idx, celda in enumerate(fila):
+                                texto = str(celda or "").strip()
+                                if re.match(r'^\d{5,}$', texto):
+                                # Heurística: el primer número largo es proyecto, el segundo es programa
+                                    if not valor_proyecto:
+                                        valor_proyecto = texto
+                                    elif not valor_programa:
+                                        valor_programa = texto
+
+                                if valor_proyecto:
+                                    registro_actual["codigo_proyecto"] = valor_proyecto
+                                    log_debug(f"Código Proyecto detectado: {valor_proyecto}")
+
+                                if valor_programa:
+                                    registro_actual["codigo_programa"] = valor_programa
+                                    log_debug(f"Código Programa detectado: {valor_programa}")
                             continue
-                        
-                        # === EXTRACCIÓN DE CAMPOS ===
-                        
-                        # Código Proyecto SOFIA
-                        if TARGET_CODIGO_PROYECTO in celda_izq:
-                            valor = _extraer_valor_celda(fila, 1)
-                            if valor:
-                                registro_actual["codigo_proyecto"] = valor
-                                log_debug(f"    ✅ Código proyecto: {valor}")
-                        
-                        # Código Programa SOFIA
-                        elif TARGET_CODIGO_PROGRAMA in celda_izq:
-                            valor = _extraer_valor_celda(fila, 1)
-                            if valor:
-                                registro_actual["codigo_programa"] = valor
-                                log_debug(f"    ✅ Código programa: {valor}")
-                        
-                        # Versión del Programa
-                        elif TARGET_VERSION_PROGRAMA in celda_izq:
-                            valor = _extraer_valor_celda(fila, 2)  # Puede estar en col 2
-                            if not valor:
-                                valor = _extraer_valor_celda(fila, 1)
-                            if valor:
-                                registro_actual["version_programa"] = valor
-                                log_debug(f"    ✅ Versión programa: {valor}")
-                        
-                        # Centro de Formación
+
+                        # Centro de formación
                         elif TARGET_CENTRO in celda_izq:
-                            valor = _extraer_valor_celda(fila, 1)
-                            if valor:
-                                registro_actual["centro_formacion"] = valor
-                                log_debug(f"    ✅ Centro: {valor}")
-                        
+                            valor = (fila[1] or "").strip() if len(fila) > 1 else ""
+                            registro_actual["centro_formacion"] = valor
+                            log_debug(f"Centro de formación: {valor}")
+
                         # Regional
-                        elif TARGET_REGIONAL in celda_izq:
-                            valor = _extraer_valor_celda(fila, 1)
-                            if valor:
-                                registro_actual["regional"] = valor
-                                log_debug(f"    ✅ Regional: {valor}")
-                        
-                        # Nombre del Proyecto
+                        elif TARGET_REGIONAL in texto_norm:
+                            valor = (fila[3] or "").strip() if len(fila) > 3 else ""
+                            registro_actual["regional"] = valor
+                            log_debug(f"Regional: {valor}")
+
+                        # Nombre del proyecto
                         elif TARGET_NOMBRE_PROYECTO in celda_izq:
-                            valor = _extraer_valor_celda(fila, 1)
-                            if valor:
-                                registro_actual["nombre_proyecto"] = valor
-                                log_debug(f"    ✅ Nombre proyecto: {valor[:50]}...")
-                        
-                        # Programa de Formación
+                            valor = (fila[1] or "").strip() if len(fila) > 1 else ""
+                            registro_actual["nombre_proyecto"] = valor
+                            log_debug(f"Nombre del proyecto: {valor}")
+
+                        # Programa de formación
                         elif TARGET_PROGRAMA_FORMACION in celda_izq:
-                            valor = _extraer_valor_celda(fila, 1)
-                            if valor:
-                                registro_actual["programa_formacion"] = valor
-                                log_debug(f"    ✅ Programa formación: {valor}")
-        
+                            valor = (fila[1] or "").strip() if len(fila) > 1 else ""
+                            registro_actual["programa_formacion"] = valor
+                            log_debug(f"Programa de formación: {valor}")
+
         # Guardar último registro si existe
         if registro_actual:
             registros.append(registro_actual)
-            log_debug(f"✅ Último registro guardado: {registro_actual.get('nombre_proyecto', 'sin nombre')}")
+            log_debug(f" Último registro guardado: {registro_actual.get('nombre_proyecto', 'sin nombre')}")
         
         # Validar que se extrajo al menos un proyecto
         if not registros:
-            log_debug("⚠️ ADVERTENCIA: No se extrajo ningún proyecto del PDF")
+            log_debug("ADVERTENCIA: No se extrajo ningún proyecto del PDF")
         else:
-            log_debug(f"✅ Total proyectos extraídos: {len(registros)}")
+            log_debug(f" Total proyectos extraídos: {len(registros)}")
         
         return registros
     
     except Exception as e:
-        log_debug(f"❌ Error en extracción de proyectos: {str(e)}")
+        log_debug(f"Error en extracción de proyectos: {str(e)}")
         raise

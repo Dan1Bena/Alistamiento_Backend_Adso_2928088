@@ -127,12 +127,20 @@ class PdfController {
 
         const resultado = await PythonService.ejecutarScript(pdfPath, 'proyecto');
 
+
+
         fs.unlinkSync(pdfPath);
 
         // === GUARDAR PROYECTO ===
         if (resultado.proyecto && resultado.proyecto.length > 0) {
             const proy = resultado.proyecto[0];
             
+            const [rows] = await connection.query(`SELECT id_programa FROM programa_formacion WHERE codigo_programa = ?`, 
+                [proy.codigo_programa]
+            )
+
+            const idPrograma = rows.length > 0 ? rows[0].id_programa : null;
+
             const [resultProyecto] = await connection.query(`
                 INSERT INTO proyectos 
                 (codigo_proyecto, nombre_proyecto, codigo_programa, 
@@ -144,7 +152,7 @@ class PdfController {
                 proy.codigo_programa || null,
                 proy.centro_formacion || null,
                 proy.regional || null,
-                idPrograma  // FK al programa (si se insertó antes)
+                idPrograma // FK al programa (si se insertó antes)
             ]);
 
             const idProyecto = resultProyecto.insertId;

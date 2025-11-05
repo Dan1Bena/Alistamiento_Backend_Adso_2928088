@@ -11,6 +11,7 @@ def procesar_pdf(pdf_path: str, tipo: str) -> dict:
         pdf_path: Ruta absoluta al PDF
         tipo: 'programa', 'competencias', 'todo'
     """
+
     resultado = {}
 
     try:
