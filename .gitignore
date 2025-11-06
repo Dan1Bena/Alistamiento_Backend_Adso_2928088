@@ -4,6 +4,8 @@ package-lock.json
 
 #Archivos de entornos
 .venv/
+.env.local
+.entornos.*.local
 
 #Logs
 logs

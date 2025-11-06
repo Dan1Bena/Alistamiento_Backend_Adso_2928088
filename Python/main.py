@@ -1,8 +1,18 @@
 import sys
 import json
+import os
 from extractors.programa_extractor import extraer_programa
 from extractors.competencias_extractor import extraer_competencias
 from extractors.proyecto_extractor import extraer_proyecto
+from extractors.raps_extractor import extraer_raps 
+
+# Configurar UTF-8
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+if sys.stderr.encoding != 'utf-8':
+    sys.stderr.reconfigure(encoding='utf-8')
+
+os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 def procesar_pdf(pdf_path: str, tipo: str) -> dict:
     """
@@ -20,6 +30,9 @@ def procesar_pdf(pdf_path: str, tipo: str) -> dict:
             
         if tipo in ['competencias', 'todo']:
             resultado['competencias'] = extraer_competencias(pdf_path)
+        
+        if tipo in ['raps', 'todo']:
+            resultado['raps'] = extraer_raps(pdf_path)
             
         if tipo in ['proyecto', 'todo']:
             resultado['proyecto'] = extraer_proyecto(pdf_path)
