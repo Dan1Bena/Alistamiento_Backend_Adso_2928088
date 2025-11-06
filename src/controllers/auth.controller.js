@@ -25,10 +25,10 @@ class AuthController {
             //Obtener Rol Y Permisos Del Usuario
             const [rolDatos] = await db.query(
                 `SELECT r.nombre AS rol, p.nombre AS permiso
-                 FROM roles r
-                 JOIN rol_permiso rp ON r.id_rol = rp.id_rol
-                 JOIN permisos p ON rp.permiso_id = p.id_permiso
-                 WHERE r.id_rol = ?`,
+                FROM roles r
+                JOIN roles_permisos rp ON r.id_rol = rp.id_rol
+                JOIN permisos p ON rp.id_permiso = p.id_permiso
+                WHERE r.id_rol = ?`,
                 [instructor.id_rol]
             );
 

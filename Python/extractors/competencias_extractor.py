@@ -64,11 +64,12 @@ def extraer_competencias(pdf_path: str) -> list:
                         elif TARGET_HORA in celda_izq:
                             for celda in fila:
                                 if celda and HORA_RE.search(str(celda)):
-                                    if hora_count == 1: 
-                                        print(f"[P{page.page_number}] ⚠ Hora ignorada (encabezado): {celda}")
-                                    else:
-                                        registro_actual["duracion_maxima"] = str(celda).strip()
-                                        break
+                                    if not registro_actual:
+                                        # Ignorar horas sueltas (como la de 3120 horas inicial)
+                                        log_debug(f"[P{page.page_number}] ⏭ Ignorando hora fuera de competencia: {celda}")
+                                        continue
+                                    registro_actual["duracion_maxima"] = str(celda).strip()
+                                    break
 
     # Guardar último registro
     if registro_actual:
