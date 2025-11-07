@@ -35,7 +35,8 @@ CREATE TABLE instructores (
   email VARCHAR(150),
   contrasena VARCHAR(200),
   cedula VARCHAR(50),
-  perfil_profesional VARCHAR(200)
+  perfil_profesional VARCHAR(200),
+  FOREIGN KEY (id_rol) REFERENCES roles(id_rol)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE instructor_ficha (
