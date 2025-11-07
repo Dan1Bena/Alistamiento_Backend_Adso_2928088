@@ -59,10 +59,10 @@ CREATE TABLE programa_formacion (
 CREATE TABLE ficha (
   id_ficha INT AUTO_INCREMENT PRIMARY KEY,
   id_programa INT, -- FK a Programa_formacion
-  codigo_ficha VARCHAR(100),
-  modalidad VARCHAR(80),
-  jornada VARCHAR(80),
-  ambiente VARCHAR(100),
+  codigo_ficha VARCHAR(20),
+  modalidad VARCHAR(20),
+  jornada ENUM("Diurna","Nocturna"),
+  ambiente VARCHAR(10),
   fecha_inicio DATE,
   fecha_final DATE,
   cantidad_trimestre INT
@@ -71,7 +71,7 @@ CREATE TABLE ficha (
 CREATE TABLE competencias (
   id_competencia INT AUTO_INCREMENT PRIMARY KEY,
   id_programa INT, -- FK a Programa_formacion
-  codigo_norma VARCHAR(100),
+  codigo_norma VARCHAR(20),
   duracion_maxima INT,
   nombre_competencia VARCHAR(500),
   unidad_competencia VARCHAR(500)
@@ -86,11 +86,11 @@ CREATE TABLE proyectos (
   id_proyecto INT AUTO_INCREMENT PRIMARY KEY,
   id_programa INT, -- FK a Programa_formacion
   id_fase INT,     -- FK a Fases
-  codigo_proyecto VARCHAR(100),
+  codigo_proyecto VARCHAR(20),
   nombre_proyecto VARCHAR(150),
-  codigo_programa VARCHAR(100),
-  centro_formacion VARCHAR(150),
-  regional VARCHAR(150)
+  codigo_programa VARCHAR(20),
+  centro_formacion VARCHAR(100),
+  regional VARCHAR(100)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE planeacion_pedagogica (

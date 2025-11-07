@@ -83,12 +83,30 @@ class PdfController {
 
             // === GUARDAR RAPs ===
             if (resultado.raps && resultado.raps.length > 0) {
+                // **PASO 1: Agrupar RAPs por competencia y contar cuántos hay**
+                const rapsPorCompetencia = {};
+
                 for (const rap of resultado.raps) {
-                    // Buscar el id_competencia basado en codigo_norma
-                    const [competenciaRow] = await connection.query(
-                        'SELECT id_competencia FROM competencias WHERE codigo_norma = ?',
-                        [rap.codigo_competencia]
-                    );
+                    if (!rapsPorCompetencia[rap.codigo_competencia]) {
+                        rapsPorCompetencia[rap.codigo_competencia] = {
+                            count: 0,
+                            raps: []
+                        };
+                    }
+                    rapsPorCompetencia[rap.codigo_competencia].count++;
+                    rapsPorCompetencia[rap.codigo_competencia].raps.push(rap);
+                }
+
+                console.log('Resumen de RAPs por competencia:');
+                for (const [codigo, info] of Object.entries(rapsPorCompetencia)) {
+                    console.log(`  ${codigo}: ${info.count} RAPs`);
+                }
+
+                // **PASO 2: Insertar RAPs con duración calculada**
+                for (const rap of resultado.raps) {
+                    // Buscar el id_competencia y duracion_maxima
+                    const [competenciaRow] = await connection.query(`SELECT id_competencia, duracion_maxima FROM competencias WHERE codigo_norma = ?`,
+                        [rap.codigo_competencia]);
 
                     if (competenciaRow.length === 0) {
                         console.warn(`⚠️ Competencia ${rap.codigo_competencia} no encontrada. Saltando RAP ${rap.codigo_rap}`);
@@ -96,17 +114,30 @@ class PdfController {
                     }
 
                     const idCompetencia = competenciaRow[0].id_competencia;
+                    const duracionMaximaCompetencia = competenciaRow[0].duracion_maxima;
 
-                    // Insertar RAP
-                    const [resultRap] = await connection.query(`
-                        INSERT INTO raps 
-                        (id_competencia, codigo, denominacion, duracion)
-                        VALUES (?, ?, ?, NULL)
-                    `, [
-                        idCompetencia,
-                        rap.codigo_rap,
-                        rap.nombre_rap
-                    ]);
+                    // **PASO 3: Calcular duración del RAP**
+                    let duracionRap = null;
+
+                    if (duracionMaximaCompetencia && rapsPorCompetencia[rap.codigo_competencia]) {
+                        const totalRapsCompetencia = rapsPorCompetencia[rap.codigo_competencia].count;
+
+                        // Duración = Horas totales de competencia / Número de RAPs
+                        duracionRap = Math.round(duracionMaximaCompetencia / totalRapsCompetencia);
+
+                        console.log(` RAP ${rap.codigo_competencia}-${rap.codigo_rap}: ${duracionMaximaCompetencia}h / ${totalRapsCompetencia} RAPs = ${duracionRap}h`);
+                    } else {
+                        console.warn(` No se pudo calcular duración para RAP ${rap.codigo_competencia}-${rap.codigo_rap}`);
+                    }
+
+                    // **PASO 4: Insertar RAP con duración calculada**
+                    const [resultRap] = await connection.query(`INSERT INTO raps (id_competencia, codigo, denominacion, duracion) VALUES (?, ?, ?, ?)`,
+                        [
+                            idCompetencia,
+                            rap.codigo_rap,
+                            rap.nombre_rap,
+                            duracionRap  // Duración calculada
+                        ]);
 
                     const idRap = resultRap.insertId;
                     idsRaps.push(idRap);

@@ -129,7 +129,7 @@ def extraer_raps(pdf_path: str) -> list:
                             dentro_de_etapa_practica = True
                             if rap_actual:
                                 raps_resultado.append(rap_actual)
-                                log_debug(f"    💾 RAP guardado antes de etapa práctica: {rap_actual['codigo_competencia']}-{rap_actual['codigo_rap']}")
+                                log_debug(f" RAP guardado antes de etapa práctica: {rap_actual['codigo_competencia']}-{rap_actual['codigo_rap']}")
                                 rap_actual = None
                             continue
                         
@@ -137,7 +137,7 @@ def extraer_raps(pdf_path: str) -> list:
                         if dentro_de_etapa_practica:
                             if CODIGO_KEY in texto_norm and "999999999" not in texto_fila:
                                 dentro_de_etapa_practica = False
-                                log_debug("    ✅ Saliendo de etapa práctica")
+                                log_debug(" Saliendo de etapa práctica")
                             else:
                                 continue
 
@@ -145,7 +145,7 @@ def extraer_raps(pdf_path: str) -> list:
                         if es_fin_seccion(texto_fila):
                             if rap_actual:
                                 raps_resultado.append(rap_actual)
-                                log_debug(f"    💾 RAP guardado (fin de sección): {rap_actual['codigo_competencia']}-{rap_actual['codigo_rap']}")
+                                log_debug(f"  RAP guardado (fin de sección): {rap_actual['codigo_competencia']}-{rap_actual['codigo_rap']}")
                                 rap_actual = None
                             seccion_actual = None
                             continue
@@ -153,19 +153,19 @@ def extraer_raps(pdf_path: str) -> list:
                         # === DETECTAR COMPETENCIA ===
                         if COMPETENCIA_KEY in texto_norm and len(fila) > 1:
                             competencia_actual = (fila[1] or "").strip()
-                            log_debug(f"    🎯 Competencia detectada: {competencia_actual[:50]}...")
+                            log_debug(f"  Competencia detectada: {competencia_actual[:50]}...")
                             continue
                             
                         if CODIGO_KEY in texto_norm and len(fila) > 1:
                             nuevo_codigo = (fila[1] or "").strip()
                             if nuevo_codigo and nuevo_codigo != "999999999":
                                 codigo_competencia = nuevo_codigo
-                                log_debug(f"    🔢 Código competencia: {codigo_competencia}")
+                                log_debug(f" Código competencia: {codigo_competencia}")
                             continue
                             
                         if NOMBRE_COMPETENCIA_KEY in texto_norm and len(fila) > 1:
                             nombre_competencia = (fila[1] or "").strip()
-                            log_debug(f"    📌 Nombre competencia: {nombre_competencia[:50]}...")
+                            log_debug(f" Nombre competencia: {nombre_competencia[:50]}...")
                             continue
 
                         # === DETECTAR INICIO DE RAP ===
@@ -175,7 +175,7 @@ def extraer_raps(pdf_path: str) -> list:
                             # Guardamos el RAP anterior
                             if rap_actual:
                                 raps_resultado.append(rap_actual)
-                                log_debug(f"    💾 RAP guardado: {rap_actual['codigo_competencia']}-{rap_actual['codigo_rap']}")
+                                log_debug(f" RAP guardado: {rap_actual['codigo_competencia']}-{rap_actual['codigo_rap']}")
                             
                             rap_actual = {
                                 "codigo_competencia": codigo_competencia,
@@ -187,7 +187,7 @@ def extraer_raps(pdf_path: str) -> list:
                                 "criterios_evaluacion": []
                             }
                             seccion_actual = None
-                            log_debug(f"    📌 RAP {codigo_competencia}-{codigo_rap} encontrado: {nombre_rap[:50]}...")
+                            log_debug(f" RAP {codigo_competencia}-{codigo_rap} encontrado: {nombre_rap[:50]}...")
                             continue
                         
                         # === DETECTAR CONTINUACIÓN DEL NOMBRE DEL RAP ===
@@ -204,15 +204,15 @@ def extraer_raps(pdf_path: str) -> list:
                         # === CAMBIAR SECCIÓN ===
                         if CONOC_PROCESO in texto_norm:
                             seccion_actual = "proceso"
-                            log_debug(f"    🔄 Sección: Conocimientos de Proceso")
+                            log_debug(f"Sección: Conocimientos de Proceso")
                             continue
                         elif CONOC_SABER in texto_norm:
                             seccion_actual = "saber"
-                            log_debug(f"    🔄 Sección: Conocimientos del Saber")
+                            log_debug(f"Sección: Conocimientos del Saber")
                             continue
                         elif CRITERIOS in texto_norm:
                             seccion_actual = "criterios"
-                            log_debug(f"    🔄 Sección: Criterios de Evaluación")
+                            log_debug(f"Sección: Criterios de Evaluación")
                             continue
 
                         # === AGREGAR TEXTO SEGÚN SECCIÓN ACTUAL ===
@@ -231,14 +231,14 @@ def extraer_raps(pdf_path: str) -> list:
         # Guardar el último RAP procesado
         if rap_actual and not dentro_de_etapa_practica:
             raps_resultado.append(rap_actual)
-            log_debug(f"✅ Último RAP guardado: {rap_actual['codigo_competencia']}-{rap_actual['codigo_rap']}")
+            log_debug(f"Último RAP guardado: {rap_actual['codigo_competencia']}-{rap_actual['codigo_rap']}")
         
-        log_debug(f"\n✅ Total RAPs extraídos: {len(raps_resultado)}")
+        log_debug(f"\nTotal RAPs extraídos: {len(raps_resultado)}")
         
         return raps_resultado
     
     except Exception as e:
-        log_debug(f"❌ Error en extracción de RAPs: {str(e)}")
+        log_debug(f"Error en extracción de RAPs: {str(e)}")
         import traceback
         log_debug(traceback.format_exc())
         raise
@@ -302,11 +302,9 @@ def verificar_completitud(competencias_count):
     }
     
     faltantes = []
-    log_debug("\n🔍 Verificación de completitud:")
+    log_debug("\nVerificación de completitud:")
     for cod, esperados in sorted(competencias_esperadas.items()):
         encontrados = competencias_count.get(cod, {"count": 0})["count"]
-        status = "✅" if encontrados == esperados else "❌"
-        log_debug(f"{status} {cod}: {encontrados}/{esperados} RAPs")
         if encontrados != esperados:
             faltantes.append(cod)
     
@@ -334,7 +332,7 @@ if __name__ == "__main__":
     # Generar resumen
     resumen = generar_resumen(raps)
     
-    log_debug("\n📊 Resumen por competencia:")
+    log_debug("\nResumen por competencia:")
     for cod in sorted(resumen.keys()):
         info = resumen[cod]
         log_debug(f"\n  🔹 {cod}: {info['count']} RAPs")
@@ -345,9 +343,9 @@ if __name__ == "__main__":
     faltantes = verificar_completitud(resumen)
     
     if faltantes:
-        log_debug(f"\n⚠️ Competencias con RAPs faltantes: {', '.join(faltantes)}")
+        log_debug(f"\nCompetencias con RAPs faltantes: {', '.join(faltantes)}")
     else:
-        log_debug(f"\n✅ Todos los RAPs esperados fueron extraídos")
+        log_debug(f"\nTodos los RAPs esperados fueron extraídos")
     
     # Crear resultado en formato JSON
     resultado = {
