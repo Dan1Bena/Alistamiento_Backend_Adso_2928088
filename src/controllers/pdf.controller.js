@@ -9,12 +9,12 @@ class PdfController {
      */
     async procesarPdf(req, res) {
         const connection = await db.getConnection();
-        
+
         try {
             // Validar que se subió un archivo
             if (!req.file) {
-                return res.status(400).json({ 
-                    error: 'No se subió ningún archivo PDF' 
+                return res.status(400).json({
+                    error: 'No se subió ningún archivo PDF'
                 });
             }
 
@@ -34,11 +34,12 @@ class PdfController {
 
             let idPrograma = null;
             let idsCompetencias = [];
+            let idsRaps = [];
 
             // === GUARDAR PROGRAMA ===
             if (resultado.programa && resultado.programa.length > 0) {
                 const prog = resultado.programa[0];
-                
+
                 const [resultPrograma] = await connection.query(`
                     INSERT INTO programa_formacion 
                     (codigo_programa, nombre_programa, vigencia, tipo_programa, 
@@ -80,6 +81,100 @@ class PdfController {
                 console.log(`${idsCompetencias.length} competencias guardadas`);
             }
 
+            // === GUARDAR RAPs ===
+            if (resultado.raps && resultado.raps.length > 0) {
+                // **PASO 1: Agrupar RAPs por competencia y contar cuántos hay**
+                const rapsPorCompetencia = {};
+
+                for (const rap of resultado.raps) {
+                    if (!rapsPorCompetencia[rap.codigo_competencia]) {
+                        rapsPorCompetencia[rap.codigo_competencia] = {
+                            count: 0,
+                            raps: []
+                        };
+                    }
+                    rapsPorCompetencia[rap.codigo_competencia].count++;
+                    rapsPorCompetencia[rap.codigo_competencia].raps.push(rap);
+                }
+
+                console.log('Resumen de RAPs por competencia:');
+                for (const [codigo, info] of Object.entries(rapsPorCompetencia)) {
+                    console.log(`  ${codigo}: ${info.count} RAPs`);
+                }
+
+                // **PASO 2: Insertar RAPs con duración calculada**
+                for (const rap of resultado.raps) {
+                    // Buscar el id_competencia y duracion_maxima
+                    const [competenciaRow] = await connection.query(`SELECT id_competencia, duracion_maxima FROM competencias WHERE codigo_norma = ?`,
+                        [rap.codigo_competencia]);
+
+                    if (competenciaRow.length === 0) {
+                        console.warn(`⚠️ Competencia ${rap.codigo_competencia} no encontrada. Saltando RAP ${rap.codigo_rap}`);
+                        continue;
+                    }
+
+                    const idCompetencia = competenciaRow[0].id_competencia;
+                    const duracionMaximaCompetencia = competenciaRow[0].duracion_maxima;
+
+                    // **PASO 3: Calcular duración del RAP**
+                    let duracionRap = null;
+
+                    if (duracionMaximaCompetencia && rapsPorCompetencia[rap.codigo_competencia]) {
+                        const totalRapsCompetencia = rapsPorCompetencia[rap.codigo_competencia].count;
+
+                        // Duración = Horas totales de competencia / Número de RAPs
+                        duracionRap = Math.round(duracionMaximaCompetencia / totalRapsCompetencia);
+
+                        console.log(` RAP ${rap.codigo_competencia}-${rap.codigo_rap}: ${duracionMaximaCompetencia}h / ${totalRapsCompetencia} RAPs = ${duracionRap}h`);
+                    } else {
+                        console.warn(` No se pudo calcular duración para RAP ${rap.codigo_competencia}-${rap.codigo_rap}`);
+                    }
+
+                    // **PASO 4: Insertar RAP con duración calculada**
+                    const [resultRap] = await connection.query(`INSERT INTO raps (id_competencia, codigo, denominacion, duracion) VALUES (?, ?, ?, ?)`,
+                        [
+                            idCompetencia,
+                            rap.codigo_rap,
+                            rap.nombre_rap,
+                            duracionRap  // Duración calculada
+                        ]);
+
+                    const idRap = resultRap.insertId;
+                    idsRaps.push(idRap);
+
+                    // Insertar Conocimientos de Proceso
+                    if (rap.conocimientos_proceso && rap.conocimientos_proceso.length > 0) {
+                        for (const conocimiento of rap.conocimientos_proceso) {
+                            await connection.query(`
+                                INSERT INTO conocimiento_proceso (id_rap, nombre)
+                                VALUES (?, ?)
+                            `, [idRap, conocimiento]);
+                        }
+                    }
+
+                    // Insertar Conocimientos del Saber
+                    if (rap.conocimientos_saber && rap.conocimientos_saber.length > 0) {
+                        for (const conocimiento of rap.conocimientos_saber) {
+                            await connection.query(`
+                                INSERT INTO conocimiento_saber (id_rap, nombre)
+                                VALUES (?, ?)
+                            `, [idRap, conocimiento]);
+                        }
+                    }
+
+                    // Insertar Criterios de Evaluación
+                    if (rap.criterios_evaluacion && rap.criterios_evaluacion.length > 0) {
+                        for (const criterio of rap.criterios_evaluacion) {
+                            await connection.query(`
+                                INSERT INTO criterios_evaluacion (id_rap, nombre)
+                                VALUES (?, ?)
+                            `, [idRap, criterio]);
+                        }
+                    }
+                }
+                console.log(`✅ ${idsRaps.length} RAPs guardados con sus conocimientos y criterios`);
+            }
+
             // Confirmar transacción
             await connection.commit();
 
@@ -100,7 +195,7 @@ class PdfController {
 
         } catch (error) {
             await connection.rollback();
-            
+
             // Eliminar archivo en caso de error
             if (req.file) {
                 this.eliminarArchivo(req.file.path);
@@ -118,52 +213,52 @@ class PdfController {
     }
 
     procesarProyecto = async (req, res) => {
-    try {
-        if (!req.file) return res.status(400).json({ error: 'No se envió archivo' });
+        try {
+            if (!req.file) return res.status(400).json({ error: 'No se envió archivo' });
 
-        const connection = await db.getConnection();
-        const pdfPath = path.resolve(req.file.path);
-        console.log(`Procesando PDF del proyecto: ${pdfPath}`);
+            const connection = await db.getConnection();
+            const pdfPath = path.resolve(req.file.path);
+            console.log(`Procesando PDF del proyecto: ${pdfPath}`);
 
-        const resultado = await PythonService.ejecutarScript(pdfPath, 'proyecto');
+            const resultado = await PythonService.ejecutarScript(pdfPath, 'proyecto');
 
 
 
-        fs.unlinkSync(pdfPath);
+            fs.unlinkSync(pdfPath);
 
-        // === GUARDAR PROYECTO ===
-        if (resultado.proyecto && resultado.proyecto.length > 0) {
-            const proy = resultado.proyecto[0];
-            
-            const [rows] = await connection.query(`SELECT id_programa FROM programa_formacion WHERE codigo_programa = ?`, 
-                [proy.codigo_programa]
-            )
+            // === GUARDAR PROYECTO ===
+            if (resultado.proyecto && resultado.proyecto.length > 0) {
+                const proy = resultado.proyecto[0];
 
-            const idPrograma = rows.length > 0 ? rows[0].id_programa : null;
+                const [rows] = await connection.query(`SELECT id_programa FROM programa_formacion WHERE codigo_programa = ?`,
+                    [proy.codigo_programa]
+                )
 
-            const [resultProyecto] = await connection.query(`
+                const idPrograma = rows.length > 0 ? rows[0].id_programa : null;
+
+                const [resultProyecto] = await connection.query(`
                 INSERT INTO proyectos 
                 (codigo_proyecto, nombre_proyecto, codigo_programa, 
                 centro_formacion, regional, id_programa)
                 VALUES (?, ?, ?, ?, ?, ?)
             `, [
-                proy.codigo_proyecto || null,
-                proy.nombre_proyecto || null,
-                proy.codigo_programa || null,
-                proy.centro_formacion || null,
-                proy.regional || null,
-                idPrograma // FK al programa (si se insertó antes)
-            ]);
+                    proy.codigo_proyecto || null,
+                    proy.nombre_proyecto || null,
+                    proy.codigo_programa || null,
+                    proy.centro_formacion || null,
+                    proy.regional || null,
+                    idPrograma // FK al programa (si se insertó antes)
+                ]);
 
-            const idProyecto = resultProyecto.insertId;
-            console.log(`Proyecto guardado con ID: ${idProyecto}`);
+                const idProyecto = resultProyecto.insertId;
+                console.log(`Proyecto guardado con ID: ${idProyecto}`);
+            }
+
+            return res.status(200).json(resultado);
+        } catch (err) {
+            console.error('Error procesando proyecto:', err);
+            res.status(500).json({ error: err.message });
         }
-
-        return res.status(200).json(resultado);
-    } catch (err) {
-        console.error('Error procesando proyecto:', err);
-        res.status(500).json({ error: err.message });
-    }
     };
 
 

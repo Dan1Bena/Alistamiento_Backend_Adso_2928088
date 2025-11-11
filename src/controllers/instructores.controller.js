@@ -53,20 +53,30 @@ class InstructoresController {
 
     //Agregar Un Usuario Nuevo
     async agregarInstructor(req, res) {
-        const { id_rol, nombre, email, contrasena, cedula, perfil_profesional } = req.body;
+        const { id_rol = 2, nombre, email, contrasena = "123456", cedula, estado } = req.body;
         try {
-            // Cifrar contrasena
             const hash = await bcrypt.hash(contrasena, 10);
 
-            await db.query(
-                'INSERT INTO instructores (id_rol, nombre, email, contrasena, cedula, perfil_profesional) VALUES (?, ?, ?, ?, ?, ?)',
-                [id_rol, nombre, email, hash, cedula, perfil_profesional]
+            const [result] = await db.query(
+                'INSERT INTO instructores (id_rol, nombre, email, contrasena, cedula, estado) VALUES (?, ?, ?, ?, ?, ?)',
+                [id_rol, nombre, email, hash, cedula, estado]
             );
-            res.json({ mensaje: 'Instructor agregado exitosamente' });
+
+            // Retornar el nuevo usuario creado (incluye los datos que React necesita)
+            res.json({
+                id_instructor: result.insertId,
+                nombre,
+                email,
+                cedula,
+                id_rol,
+                estado
+            });
         } catch (error) {
+            console.error("❌ Error en agregarInstructor:", error);
             res.status(500).json({ mensaje: 'Error al agregar instructor' });
         }
     }
+
 
     //Actualizar Usuario (Opcionalmente Cambiar contrasena)
     async actualizarInstructor(req, res) {
