@@ -53,7 +53,7 @@ class InstructoresController {
 
     //Agregar Un Usuario Nuevo
     async agregarInstructor(req, res) {
-        const { id_rol = 2, nombre, email, contrasena = "123456", cedula, estado } = req.body;
+        const { id_rol = 2, nombre, email, contrasena, cedula, estado } = req.body;
         try {
             const hash = await bcrypt.hash(contrasena, 10);
 
