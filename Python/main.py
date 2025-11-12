@@ -32,7 +32,7 @@ def procesar_pdf(pdf_path: str, tipo: str) -> dict:
             resultado['competencias'] = extraer_competencias(pdf_path)
         
         if tipo in ['raps', 'todo']:
-            resultado['raps'] = extraer_raps(pdf_path)
+            resultado['unidadRaps'] = extraer_raps(pdf_path)
             
         if tipo in ['proyecto', 'todo']:
             resultado['proyecto'] = extraer_proyecto(pdf_path)
