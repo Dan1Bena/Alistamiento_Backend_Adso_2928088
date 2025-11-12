@@ -35,7 +35,8 @@ CREATE TABLE instructores (
   email VARCHAR(150),
   contrasena VARCHAR(200),
   cedula VARCHAR(50),
-  estado ENUM("Activo", "Deshabilitado")
+  perfil_profesional VARCHAR(200),
+  FOREIGN KEY (id_rol) REFERENCES roles(id_rol)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE instructor_ficha (
@@ -48,7 +49,7 @@ CREATE TABLE programa_formacion (
   id_programa INT AUTO_INCREMENT PRIMARY KEY,
   codigo_programa VARCHAR(100),
   nombre_programa VARCHAR(150) NOT NULL,
-  vigencia VARCHAR(500),
+  vigencia VARCHAR(50),
   tipo_programa VARCHAR(80),
   version_programa VARCHAR(50),
   horas_totales INT,
@@ -68,7 +69,7 @@ CREATE TABLE ficha (
   cantidad_trimestre INT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE competencias (
+CREATE TABLE competencia (
   id_competencia INT AUTO_INCREMENT PRIMARY KEY,
   id_programa INT, -- FK a Programa_formacion
   codigo_norma VARCHAR(20),
@@ -182,7 +183,7 @@ ALTER TABLE ficha
 --     ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Competencia -> Programa_formacion, RAPs
-ALTER TABLE competencias
+ALTER TABLE competencia
   ADD CONSTRAINT fk_competencia_programa
     FOREIGN KEY (id_programa) REFERENCES programa_formacion (id_programa)
     ON DELETE SET NULL ON UPDATE CASCADE;
@@ -272,7 +273,7 @@ DESCRIBE instructores;
 DESCRIBE instructor_ficha;
 DESCRIBE programa_formacion;
 DESCRIBE ficha;
-DESCRIBE competencias;
+DESCRIBE competencia;
 DESCRIBE fases;
 DESCRIBE proyectos;
 DESCRIBE planeacion_pedagogica;
