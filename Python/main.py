@@ -8,9 +8,9 @@ from extractors.raps_extractor import extraer_raps
 
 # Configurar UTF-8
 if sys.stdout.encoding != 'utf-8':
-    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stdout.reconfigure(encoding='utf-8') # type: ignore
 if sys.stderr.encoding != 'utf-8':
-    sys.stderr.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8') # type: ignore
 
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 

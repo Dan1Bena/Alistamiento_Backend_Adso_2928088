@@ -16,7 +16,7 @@ app.use('/api/rol-permiso', require('./routes/roles_permisos.routes'));
 app.use('/api/roles', require('./routes/roles.routes'));
 app.use('/api/instructores', require('./routes/instructor.routes'));
 app.use('/api/pdf', require('./routes/pdf.routes'));
+app.use('/api/fichas', require('./routes/fichas.routes'));
 
 module.exports = app;
-
 

@@ -56,7 +56,7 @@ CREATE TABLE programa_formacion (
   horas_etapa_productiva INT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE ficha (
+CREATE TABLE fichas (
   id_ficha INT AUTO_INCREMENT PRIMARY KEY,
   id_programa INT, -- FK a Programa_formacion
   codigo_ficha VARCHAR(20),
@@ -118,7 +118,7 @@ CREATE TABLE trimestre (
 CREATE TABLE raps (
   id_rap INT AUTO_INCREMENT PRIMARY KEY,
   id_competencia INT,
-  denominacion VARCHAR(100),
+  denominacion VARCHAR(255),
   duracion INT,
   codigo VARCHAR(20)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -160,17 +160,17 @@ ALTER TABLE instructores
     FOREIGN KEY (id_rol) REFERENCES roles (id_rol)
     ON DELETE SET NULL ON UPDATE CASCADE;
 
--- instructor_ficha -> instructores, Ficha
+-- instructor_ficha -> instructores, Fichas
 ALTER TABLE instructor_ficha
   ADD CONSTRAINT fk_instructorficha_instructor
     FOREIGN KEY (id_instructor) REFERENCES instructores (id_instructor)
     ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT fk_instructorficha_ficha
-    FOREIGN KEY (id_ficha) REFERENCES Ficha (id_ficha)
+    FOREIGN KEY (id_ficha) REFERENCES fichas (id_ficha)
     ON DELETE CASCADE ON UPDATE CASCADE;
 
--- Ficha -> Programa_formacion
-ALTER TABLE ficha
+-- Fichas -> Programa_formacion
+ALTER TABLE fichas
   ADD CONSTRAINT fk_ficha_programa
     FOREIGN KEY (id_programa) REFERENCES programa_formacion (id_programa)
     ON DELETE SET NULL ON UPDATE CASCADE;
@@ -204,7 +204,7 @@ ALTER TABLE raps
 -- Planeacion_Pedagogica -> Ficha
 ALTER TABLE planeacion_pedagogica
   ADD CONSTRAINT fk_planeacion_ficha
-    FOREIGN KEY (id_ficha) REFERENCES ficha (id_ficha)
+    FOREIGN KEY (id_ficha) REFERENCES fichas (id_ficha)
     ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Guia_Aprendizaje -> Planeacion_Pedagogica
@@ -242,7 +242,7 @@ ALTER TABLE criterios_evaluacion
 -- ======================
 -- Indexes (opcional, para mejorar consultas sobre FKs)
 -- ======================
-CREATE INDEX idx_ficha_programa ON ficha (id_programa);
+CREATE INDEX idx_ficha_programa ON fichas (id_programa);
 CREATE INDEX idx_competencia_programa ON competencias (id_programa);
 CREATE INDEX idx_rap_competencias ON raps (id_rap);
 CREATE INDEX idx_proyectos_programa ON proyectos (id_programa);
@@ -271,7 +271,7 @@ DESCRIBE roles_permisos;
 DESCRIBE instructores;
 DESCRIBE instructor_ficha;
 DESCRIBE programa_formacion;
-DESCRIBE ficha;
+DESCRIBE fichas;
 DESCRIBE competencias;
 DESCRIBE fases;
 DESCRIBE proyectos;
