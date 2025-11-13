@@ -5,18 +5,20 @@ class ProgramaController {
     async obtenerProgramas(req, res) {
         try {
             const [programas] = await db.query(
-                `SELECT p.id_programa, p.
+                `SELECT 
+                    p.id_programa, 
+                    p.codigo_programa, 
+                    p.nombre_programa, 
+                    COUNT(f.id_ficha) AS total_fichas
                 FROM programa_formacion p
-                LEFT JOIN roles r ON i.id_rol = r.id_rol
-                LEFT JOIN roles_permisos rp ON r.id_rol = rp.id_rol
-                LEFT JOIN permisos p ON rp.id_permiso = p.id_permiso
-                GROUP BY i.id_instructor, i.nombre, i.email, r.nombre`
+                LEFT JOIN fichas f ON f.id_programa = p.id_programa
+                GROUP BY p.id_programa`
             );
 
-            res.json(instructores);
+            res.json(programas);
         } catch (error) {
             console.error(error);
-            res.status(500).json({ mensaje: 'Error al obtener usuarios' });
+            res.status(500).json({ mensaje: 'Error al obtener programas' });
         }
     }
 }

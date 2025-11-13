@@ -17,6 +17,7 @@ app.use('/api/roles', require('./routes/roles.routes'));
 app.use('/api/instructores', require('./routes/instructor.routes'));
 app.use('/api/pdf', require('./routes/pdf.routes'));
 app.use('/api/fichas', require('./routes/fichas.routes'));
+app.use('/api/programas', require('./routes/programas.routes'))
 
 module.exports = app;
 
