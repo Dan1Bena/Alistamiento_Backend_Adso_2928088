@@ -36,12 +36,12 @@ class FichasController {
 
   async agregarFichas(req, res){
     
-    const { id_programa, codigo_ficha, modalidad, jornada, ambiente, fecha_inicio, fecha_final } = req.body;
+    const { id_programa, codigo_ficha, modalidad, jornada, ambiente, fecha_inicio, fecha_final, cantidad_trimestre } = req.body;
 
     try {
       await db.query(
       `INSERT INTO fichas (id_programa, codigo_ficha, modalidad, jornada, ambiente, fecha_inicio, fecha_final, cantidad_trimestre) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id_programa, codigo_ficha, modalidad, jornada, ambiente, fecha_inicio, fecha_final]
+      [id_programa, codigo_ficha, modalidad, jornada, ambiente, fecha_inicio, fecha_final, cantidad_trimestre]
       );
       res.json({mensaje: 'Ficha creada exitosamente'});
     } catch (error) {

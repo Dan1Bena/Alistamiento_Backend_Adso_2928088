@@ -37,6 +37,12 @@ coverage/
 uploads/*
 !uploads/.gitkeep
 
+# Ignorar carpetas de caché de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
 # Otros
 *.pid
 *.seed

@@ -89,7 +89,7 @@ CREATE TABLE proyectos (
   codigo_proyecto VARCHAR(20),
   nombre_proyecto VARCHAR(150),
   codigo_programa VARCHAR(20),
-  centro_formacion VARCHAR(30),
+  centro_formacion VARCHAR(50),
   regional VARCHAR(30)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -262,6 +262,8 @@ select * from programa_formacion;
 select * from proyectos;
 select * from competencias;
 select * from raps;
+select * from fichas;
+
 
 SHOW TABLES;
 
