@@ -46,11 +46,11 @@ CREATE TABLE instructor_ficha (
 
 CREATE TABLE programa_formacion (
   id_programa INT AUTO_INCREMENT PRIMARY KEY,
-  codigo_programa VARCHAR(100),
-  nombre_programa VARCHAR(150) NOT NULL,
-  vigencia VARCHAR(500),
-  tipo_programa VARCHAR(80),
-  version_programa VARCHAR(50),
+  codigo_programa VARCHAR(20),
+  nombre_programa TEXT NOT NULL,
+  vigencia TEXT,
+  tipo_programa VARCHAR(50),
+  version_programa VARCHAR(10),
   horas_totales INT,
   horas_etapa_lectiva INT,
   horas_etapa_productiva INT
@@ -71,10 +71,10 @@ CREATE TABLE fichas (
 CREATE TABLE competencias (
   id_competencia INT AUTO_INCREMENT PRIMARY KEY,
   id_programa INT, -- FK a Programa_formacion
-  codigo_norma VARCHAR(20),
+  codigo_norma TEXT,
   duracion_maxima INT,
-  nombre_competencia VARCHAR(255),
-  unidad_competencia VARCHAR(255)
+  nombre_competencia TEXT,
+  unidad_competencia TEXT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE fases (
@@ -86,11 +86,11 @@ CREATE TABLE proyectos (
   id_proyecto INT AUTO_INCREMENT PRIMARY KEY,
   id_programa INT, -- FK a Programa_formacion
   id_fase INT,     -- FK a Fases
-  codigo_proyecto VARCHAR(20),
-  nombre_proyecto VARCHAR(150),
+  codigo_proyecto TEXT,
+  nombre_proyecto TEXT,
   codigo_programa VARCHAR(20),
-  centro_formacion VARCHAR(50),
-  regional VARCHAR(30)
+  centro_formacion TEXT,
+  regional TEXT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE planeacion_pedagogica (
@@ -103,7 +103,7 @@ CREATE TABLE planeacion_pedagogica (
 CREATE TABLE guia_aprendizaje (
   id_guia INT AUTO_INCREMENT PRIMARY KEY,
   id_planeacion INT, -- FK a Planeacion_Pedagogica
-  titulo VARCHAR(200),
+  titulo TEXT,
   version VARCHAR(10),
   fecha_creacion DATE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -118,7 +118,7 @@ CREATE TABLE trimestre (
 CREATE TABLE raps (
   id_rap INT AUTO_INCREMENT PRIMARY KEY,
   id_competencia INT,
-  denominacion VARCHAR(255),
+  denominacion TEXT),
   duracion INT,
   codigo VARCHAR(20)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
