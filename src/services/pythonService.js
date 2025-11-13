@@ -12,9 +12,12 @@ class PythonService {
         return new Promise((resolve, reject) => {
             const scriptPath = path.join(__dirname, '../../python/main.py');
 
-            // Spawn del proceso Python
-            const pythonPath = path.join(__dirname, '../../.venv/Scripts/python.exe');
-            const python = spawn(pythonPath, [scriptPath, pdfPath, tipo]);
+            // ✅ SOLUCIÓN: Usar 'python' o 'python3' según tu sistema
+            const pythonCommand = process.platform === 'win32' ? 'python' : 'python3';
+            
+            console.log(`🔧 Ejecutando: ${pythonCommand} ${scriptPath} ${pdfPath} ${tipo}`);
+
+            const python = spawn(pythonCommand, [scriptPath, pdfPath, tipo]);
 
             let dataString = '';
             let errorString = '';
@@ -22,18 +25,20 @@ class PythonService {
             // Capturar stdout
             python.stdout.on('data', (data) => {
                 dataString += data.toString();
+                console.log("[PYTHON STDOUT]:", data.toString().trim());
             });
 
             // Capturar stderr
             python.stderr.on('data', (data) => {
                 const msg = data.toString();
-                console.log("[PYTHON LOG]:", msg.trim()); // Muestra logs en consola Node
+                console.error("[PYTHON STDERR]:", msg.trim());
                 errorString += msg;
             });
 
-
             // Cuando el proceso termine
             python.on('close', (code) => {
+                console.log(`[PYTHON] Proceso terminado con código: ${code}`);
+                
                 if (code !== 0) {
                     return reject({
                         error: 'Error en el script Python',
@@ -43,6 +48,7 @@ class PythonService {
                 }
 
                 try {
+                    console.log("[PYTHON] Datos recibidos:", dataString);
                     const resultado = JSON.parse(dataString);
                     
                     if (!resultado.success) {
@@ -64,9 +70,11 @@ class PythonService {
 
             // Error al lanzar el proceso
             python.on('error', (error) => {
+                console.error("[PYTHON] Error ejecutando proceso:", error);
                 reject({
                     error: 'No se pudo ejecutar Python',
-                    details: error.message
+                    details: `Comando: ${pythonCommand}. Error: ${error.message}`,
+                    suggestion: 'Verifica que Python esté instalado y en el PATH'
                 });
             });
         });

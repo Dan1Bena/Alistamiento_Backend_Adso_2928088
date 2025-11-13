@@ -5,31 +5,26 @@ const path = require('path');
 
 class PdfController {
     /**
-     * Procesa un PDF y guarda la información en la BD
+     * Procesa un PDF de programa de formación
      */
     async procesarPdf(req, res) {
         const connection = await db.getConnection();
 
         try {
-            // Validar que se subió un archivo
             if (!req.file) {
-                return res.status(400).json({
-                    error: 'No se subió ningún archivo PDF'
-                });
+                return res.status(400).json({ error: 'No se subió ningún archivo PDF' });
             }
 
             const pdfPath = req.file.path;
-            const tipo = req.body.tipo || 'todo'; // programa, competencias, todo
+            const tipo = req.body.tipo || 'todo';
 
             console.log(`Procesando PDF: ${pdfPath}`);
             console.log(`Tipo de extracción: ${tipo}`);
 
             // Ejecutar script Python
             const resultado = await PythonService.ejecutarScript(pdfPath, tipo);
+            console.log('✅ Python retornó datos');
 
-            console.log('✅ Python retornó datos:', JSON.stringify(resultado, null, 2));
-
-            // Iniciar transacción
             await connection.beginTransaction();
 
             let idPrograma = null;
@@ -46,234 +41,206 @@ class PdfController {
                      version_programa, horas_totales, horas_etapa_lectiva, horas_etapa_productiva)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 `, [
-                    prog.codigo_programa || null,
-                    prog.nombre_programa || null,
-                    prog.vigencia || null,
-                    prog.tipo || null,
-                    prog.version_programa || null,
+                    this.truncar(prog.codigo_programa, 100),
+                    this.truncar(prog.nombre_programa, 150),
+                    this.truncar(prog.vigencia, 5000),
+                    this.truncar(prog.tipo, 500),
+                    this.truncar(prog.version_programa, 500),
                     this.extraerNumeroHoras(prog.horas_totales),
                     this.extraerNumeroHoras(prog.horas_etapa_lectiva),
                     this.extraerNumeroHoras(prog.horas_etapa_productiva)
                 ]);
 
                 idPrograma = resultPrograma.insertId;
-                console.log(`Programa guardado con ID: ${idPrograma}`);
+                console.log(`✅ Programa guardado con ID: ${idPrograma}`);
             }
 
             // === GUARDAR COMPETENCIAS ===
             if (resultado.competencias && resultado.competencias.length > 0) {
                 for (const comp of resultado.competencias) {
                     const [resultComp] = await connection.query(`
-                        INSERT INTO competencias
+                        INSERT INTO competencia
                         (id_programa, codigo_norma, nombre_competencia, 
                          unidad_competencia, duracion_maxima)
                         VALUES (?, ?, ?, ?, ?)
                     `, [
                         idPrograma,
-                        comp.codigo_norma || null,
-                        comp.nombre_competencia || null,
-                        comp.unidad_competencia || null,
+                        this.truncar(comp.codigo_norma, 100),
+                        this.truncar(comp.nombre_competencia, 200),
+                        this.truncar(comp.unidad_competencia, 150),
                         this.extraerNumeroHoras(comp.duracion_maxima)
                     ]);
 
                     idsCompetencias.push(resultComp.insertId);
                 }
-                console.log(`${idsCompetencias.length} competencias guardadas`);
+                console.log(`✅ ${idsCompetencias.length} competencias guardadas`);
             }
 
-            // === GUARDAR RAPs ===
-            if (resultado.raps && resultado.raps.length > 0) {
-                // **PASO 1: Agrupar RAPs por competencia y contar cuántos hay**
-                const rapsPorCompetencia = {};
+            // ... (mantén el resto de tu código para RAPs)
 
-                for (const rap of resultado.raps) {
-                    if (!rapsPorCompetencia[rap.codigo_competencia]) {
-                        rapsPorCompetencia[rap.codigo_competencia] = {
-                            count: 0,
-                            raps: []
-                        };
-                    }
-                    rapsPorCompetencia[rap.codigo_competencia].count++;
-                    rapsPorCompetencia[rap.codigo_competencia].raps.push(rap);
-                }
-
-                console.log('Resumen de RAPs por competencia:');
-                for (const [codigo, info] of Object.entries(rapsPorCompetencia)) {
-                    console.log(`  ${codigo}: ${info.count} RAPs`);
-                }
-
-                // **PASO 2: Insertar RAPs con duración calculada**
-                for (const rap of resultado.raps) {
-                    // Buscar el id_competencia y duracion_maxima
-                    const [competenciaRow] = await connection.query(`SELECT id_competencia, duracion_maxima FROM competencias WHERE codigo_norma = ?`,
-                        [rap.codigo_competencia]);
-
-                    if (competenciaRow.length === 0) {
-                        console.warn(`⚠️ Competencia ${rap.codigo_competencia} no encontrada. Saltando RAP ${rap.codigo_rap}`);
-                        continue;
-                    }
-
-                    const idCompetencia = competenciaRow[0].id_competencia;
-                    const duracionMaximaCompetencia = competenciaRow[0].duracion_maxima;
-
-                    // **PASO 3: Calcular duración del RAP**
-                    let duracionRap = null;
-
-                    if (duracionMaximaCompetencia && rapsPorCompetencia[rap.codigo_competencia]) {
-                        const totalRapsCompetencia = rapsPorCompetencia[rap.codigo_competencia].count;
-
-                        // Duración = Horas totales de competencia / Número de RAPs
-                        duracionRap = Math.round(duracionMaximaCompetencia / totalRapsCompetencia);
-
-                        console.log(` RAP ${rap.codigo_competencia}-${rap.codigo_rap}: ${duracionMaximaCompetencia}h / ${totalRapsCompetencia} RAPs = ${duracionRap}h`);
-                    } else {
-                        console.warn(` No se pudo calcular duración para RAP ${rap.codigo_competencia}-${rap.codigo_rap}`);
-                    }
-
-                    // **PASO 4: Insertar RAP con duración calculada**
-                    const [resultRap] = await connection.query(`INSERT INTO raps (id_competencia, codigo, denominacion, duracion) VALUES (?, ?, ?, ?)`,
-                        [
-                            idCompetencia,
-                            rap.codigo_rap,
-                            rap.nombre_rap,
-                            duracionRap  // Duración calculada
-                        ]);
-
-                    const idRap = resultRap.insertId;
-                    idsRaps.push(idRap);
-
-                    // Insertar Conocimientos de Proceso
-                    if (rap.conocimientos_proceso && rap.conocimientos_proceso.length > 0) {
-                        for (const conocimiento of rap.conocimientos_proceso) {
-                            await connection.query(`
-                                INSERT INTO conocimiento_proceso (id_rap, nombre)
-                                VALUES (?, ?)
-                            `, [idRap, conocimiento]);
-                        }
-                    }
-
-                    // Insertar Conocimientos del Saber
-                    if (rap.conocimientos_saber && rap.conocimientos_saber.length > 0) {
-                        for (const conocimiento of rap.conocimientos_saber) {
-                            await connection.query(`
-                                INSERT INTO conocimiento_saber (id_rap, nombre)
-                                VALUES (?, ?)
-                            `, [idRap, conocimiento]);
-                        }
-                    }
-
-                    // Insertar Criterios de Evaluación
-                    if (rap.criterios_evaluacion && rap.criterios_evaluacion.length > 0) {
-                        for (const criterio of rap.criterios_evaluacion) {
-                            await connection.query(`
-                                INSERT INTO criterios_evaluacion (id_rap, nombre)
-                                VALUES (?, ?)
-                            `, [idRap, criterio]);
-                        }
-                    }
-                }
-                console.log(`✅ ${idsRaps.length} RAPs guardados con sus conocimientos y criterios`);
-            }
-
-            // Confirmar transacción
             await connection.commit();
-
-            // Eliminar archivo temporal
             this.eliminarArchivo(pdfPath);
 
             res.json({
+                success: true,
                 mensaje: 'PDF procesado exitosamente',
                 data: {
                     id_programa: idPrograma,
                     ids_competencias: idsCompetencias,
+                    ids_raps: idsRaps,
                     resumen: {
                         programas: resultado.programa?.length || 0,
-                        competencias: resultado.competencias?.length || 0
+                        competencias: resultado.competencias?.length || 0,
+                        raps: resultado.raps?.length || 0
                     }
                 }
             });
 
         } catch (error) {
             await connection.rollback();
+            if (req.file) this.eliminarArchivo(req.file.path);
 
-            // Eliminar archivo en caso de error
-            if (req.file) {
-                this.eliminarArchivo(req.file.path);
-            }
-
-            console.error('Error procesando PDF:', error);
-
+            console.error('❌ Error procesando PDF:', error);
             res.status(500).json({
                 error: 'Error al procesar el PDF',
-                detalles: error.details || error.message
+                detalles: error.message
             });
         } finally {
             connection.release();
         }
     }
 
-    procesarProyecto = async (req, res) => {
+    /**
+     * Procesa un PDF de proyecto formativo
+     */
+    async procesarProyecto(req, res) {
+        const connection = await db.getConnection();
+
         try {
             if (!req.file) return res.status(400).json({ error: 'No se envió archivo' });
 
-            const connection = await db.getConnection();
             const pdfPath = path.resolve(req.file.path);
             console.log(`Procesando PDF del proyecto: ${pdfPath}`);
 
             const resultado = await PythonService.ejecutarScript(pdfPath, 'proyecto');
 
+            await connection.beginTransaction();
 
-
-            fs.unlinkSync(pdfPath);
+            let idProyecto = null;
 
             // === GUARDAR PROYECTO ===
             if (resultado.proyecto && resultado.proyecto.length > 0) {
                 const proy = resultado.proyecto[0];
 
-                const [rows] = await connection.query(`SELECT id_programa FROM programa_formacion WHERE codigo_programa = ?`,
+                // Buscar el programa por código
+                const [programaRows] = await connection.query(
+                    `SELECT id_programa FROM programa_formacion WHERE codigo_programa = ?`,
                     [proy.codigo_programa]
-                )
+                );
 
-                const idPrograma = rows.length > 0 ? rows[0].id_programa : null;
+                const idPrograma = programaRows.length > 0 ? programaRows[0].id_programa : null;
 
                 const [resultProyecto] = await connection.query(`
-                INSERT INTO proyectos 
-                (codigo_proyecto, nombre_proyecto, codigo_programa, 
-                centro_formacion, regional, id_programa)
-                VALUES (?, ?, ?, ?, ?, ?)
-            `, [
-                    proy.codigo_proyecto || null,
-                    proy.nombre_proyecto || null,
-                    proy.codigo_programa || null,
-                    proy.centro_formacion || null,
-                    proy.regional || null,
-                    idPrograma // FK al programa (si se insertó antes)
+                    INSERT INTO proyectos 
+                    (codigo_proyecto, nombre_proyecto, codigo_programa, 
+                    centro_formacion, regional, id_programa)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                `, [
+                    this.truncar(proy.codigo_proyecto, 100),
+                    this.truncar(proy.nombre_proyecto, 150),
+                    this.truncar(proy.codigo_programa, 100),
+                    this.truncar(proy.centro_formacion, 150),
+                    this.truncar(proy.regional, 150),
+                    idPrograma
                 ]);
 
-                const idProyecto = resultProyecto.insertId;
-                console.log(`Proyecto guardado con ID: ${idProyecto}`);
+                idProyecto = resultProyecto.insertId;
+                console.log(`✅ Proyecto guardado con ID: ${idProyecto}`);
             }
 
-            return res.status(200).json(resultado);
-        } catch (err) {
-            console.error('Error procesando proyecto:', err);
-            res.status(500).json({ error: err.message });
-        }
-    };
+            await connection.commit();
+            this.eliminarArchivo(pdfPath);
 
+            return res.json({
+                mensaje: 'Proyecto procesado exitosamente',
+                data: {
+                    id_proyecto: idProyecto,
+                    datos_extraidos: resultado
+                }
+            });
+
+        } catch (err) {
+            await connection.rollback();
+            if (req.file) this.eliminarArchivo(req.file.path);
+
+            console.error('Error procesando proyecto:', err);
+            res.status(500).json({
+                error: 'Error al procesar el proyecto',
+                detalles: err.message
+            });
+        } finally {
+            connection.release();
+        }
+    }
 
     /**
-     * Extrae el número de horas de un string como "3120 horas"
+ * Obtiene todos los programas de formación
+ */
+    async obtenerProgramas(req, res) {
+        try {
+            const [programas] = await db.query(`
+            SELECT 
+                pf.id_programa,
+                pf.codigo_programa,
+                pf.nombre_programa,
+                pf.vigencia,
+                pf.tipo_programa,
+                pf.version_programa,
+                pf.horas_totales,
+                pf.horas_etapa_lectiva,
+                pf.horas_etapa_productiva,
+                COUNT(DISTINCT c.id_competencia) as total_competencias,
+                COUNT(DISTINCT r.id_rap) as total_raps,
+                COUNT(DISTINCT p.id_proyecto) as total_proyectos
+            FROM programa_formacion pf
+            LEFT JOIN competencia c ON pf.id_programa = c.id_programa
+            LEFT JOIN raps r ON c.id_competencia = r.id_competencia
+            LEFT JOIN proyectos p ON pf.id_programa = p.id_programa
+            GROUP BY pf.id_programa
+            ORDER BY pf.id_programa DESC
+        `);
+
+            res.json({
+                success: true,
+                data: programas
+            });
+
+        } catch (error) {
+            console.error('Error obteniendo programas:', error);
+            res.status(500).json({
+                error: 'Error al obtener los programas',
+                detalles: error.message
+            });
+        }
+    }
+
+    /**
+     * Función para truncar campos largos
      */
+    truncar(valor, maxLength = 255) {
+        if (!valor || typeof valor !== 'string') return null;
+        if (valor.length <= maxLength) return valor;
+
+        console.log(`✂️ Truncando campo de ${valor.length} a ${maxLength} caracteres`);
+        return valor.substring(0, maxLength - 3) + '...';
+    }
+
     extraerNumeroHoras(textoHoras) {
         if (!textoHoras) return null;
         const match = String(textoHoras).match(/(\d+)/);
         return match ? parseInt(match[1]) : null;
     }
 
-    /**
-     * Elimina un archivo de forma segura
-     */
     eliminarArchivo(filePath) {
         try {
             if (fs.existsSync(filePath)) {

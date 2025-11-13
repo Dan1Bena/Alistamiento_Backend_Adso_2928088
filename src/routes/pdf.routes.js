@@ -1,3 +1,4 @@
+// routes/pdf.routes.js
 const express = require('express');
 const router = express.Router();
 const PdfController = require('../controllers/pdf.controller');
@@ -5,15 +6,18 @@ const upload = require('../middleware/upload');
 
 const pdfController = new PdfController();
 
-// POST /api/pdf/procesar
-// Cuerpo: multipart/form-data con campo "archivo" y opcionalmente "tipo"
+// Ruta para obtener programas
+router.get('/programas', (req, res) => pdfController.obtenerProgramas(req, res));
+
+// Ruta para programa de formación
 router.post('/procesar/programa', 
-    upload.single('archivo'), 
+    upload.single('file'),
     (req, res) => pdfController.procesarPdf(req, res)
 );
 
+// Ruta para proyecto formativo
 router.post('/procesar/proyecto', 
-    upload.single('archivo'), 
+    upload.single('file'),
     (req, res) => pdfController.procesarProyecto(req, res)
 );
 
