@@ -138,5 +138,36 @@ class InstructoresController {
     }
 }
 
+    // Camila G.
+    // Obtener fichas asignadas a un instructor
+    async obtenerFichasPorInstructor(req, res) {
+        const { id } = req.params;
+
+        try {
+            const [fichas] = await db.query(
+                `SELECT 
+                f.id_ficha,
+                f.codigo_ficha,
+                f.modalidad,
+                f.jornada,
+                f.ambiente,
+                f.fecha_inicio,
+                f.fecha_final,
+                f.cantidad_trimestre,
+                p.nombre_programa,
+                p.codigo_programa
+            FROM instructor_ficha inf
+            INNER JOIN fichas f ON inf.id_ficha = f.id_ficha
+            LEFT JOIN programa_formacion p ON f.id_programa = p.id_programa
+            WHERE inf.id_instructor = ?`,
+                [id]
+            );
+
+            res.json(fichas);
+        } catch (error) {
+            console.error("❌ Error al obtener fichas del instructor:", error);
+            res.status(500).json({ error: "Error al obtener fichas del instructor" });
+        }
+    }
 }
 module.exports = InstructoresController;

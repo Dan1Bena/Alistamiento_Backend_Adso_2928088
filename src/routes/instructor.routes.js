@@ -1,8 +1,11 @@
 const express = require('express');
-const InstructoresController= require('../controllers/instructores.controller');
+const InstructoresController = require('../controllers/instructores.controller');
 
 const router = express.Router();
 const instructoresController = new InstructoresController();
+// Camila G.
+// RUTA ESPECÍFICA (debe ir primero)
+router.get('/:id/fichas', (req, res) => instructoresController.obtenerFichasPorInstructor(req, res));
 
 router.get('/', (req, res) => instructoresController.obtenerInstructores(req, res));
 router.get('/:id', (req, res) => instructoresController.obtenerInstructorPorId(req, res));
