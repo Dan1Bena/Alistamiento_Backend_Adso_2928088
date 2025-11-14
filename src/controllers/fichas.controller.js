@@ -34,21 +34,67 @@ class FichasController {
     };
   }
 
-  async agregarFichas(req, res){
-    
+  // Agrega este método después de obtenerFichasPorProgramas
+  async obtenerTodasLasFichas(req, res) {
+    try {
+      const [fichas] = await db.query(
+        `SELECT
+      f.id_ficha,
+      f.codigo_ficha,
+      f.modalidad,
+      f.jornada,
+      f.ambiente AS ubicacion,
+      f.fecha_inicio,
+      f.fecha_final AS fecha_fin,
+      f.cantidad_trimestre,
+      f.id_programa,
+      p.nombre_programa
+      FROM fichas f
+      LEFT JOIN programa_formacion p ON f.id_programa = p.id_programa`
+      );
+
+      res.json(fichas);
+    } catch (error) {
+      console.error("Error al obtener todas las fichas:", error);
+      res.status(500).json({ error: "Error al obtener fichas" });
+    }
+  }
+
+  async agregarFichas(req, res) {
     const { id_programa, codigo_ficha, modalidad, jornada, ambiente, fecha_inicio, fecha_final, cantidad_trimestre } = req.body;
 
     try {
-      await db.query(
-      `INSERT INTO fichas (id_programa, codigo_ficha, modalidad, jornada, ambiente, fecha_inicio, fecha_final, cantidad_trimestre) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id_programa, codigo_ficha, modalidad, jornada, ambiente, fecha_inicio, fecha_final, cantidad_trimestre]
+      // MODIFICA ESTA PARTE:
+      const [result] = await db.query(
+        `INSERT INTO fichas (id_programa, codigo_ficha, modalidad, jornada, ambiente, fecha_inicio, fecha_final, cantidad_trimestre) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id_programa, codigo_ficha, modalidad, jornada, ambiente, fecha_inicio, fecha_final, cantidad_trimestre]
       );
-      res.json({mensaje: 'Ficha creada exitosamente'});
+
+      // Obtener la ficha recién creada
+      const [fichaCreada] = await db.query(
+        `SELECT
+      f.id_ficha,
+      f.codigo_ficha,
+      f.modalidad,
+      f.jornada,
+      f.ambiente AS ubicacion,
+      f.fecha_inicio,
+      f.fecha_final AS fecha_fin,
+      f.cantidad_trimestre,
+      f.id_programa,
+      p.nombre_programa
+      FROM fichas f
+      LEFT JOIN programa_formacion p ON f.id_programa = p.id_programa
+      WHERE f.id_ficha = ?`,
+        [result.insertId]
+      );
+
+      res.json({ mensaje: 'Ficha creada exitosamente', ficha: fichaCreada[0] });
     } catch (error) {
-      console.error("Error al obtener fichas:", error);
+      console.error("Error al crear ficha:", error);
       res.status(500).json({ error: "Error al crear ficha" });
-    };
-  };
+    }
+  }
 }
 
 module.exports = FichasController;
