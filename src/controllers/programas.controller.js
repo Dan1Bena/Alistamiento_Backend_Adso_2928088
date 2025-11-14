@@ -21,6 +21,31 @@ class ProgramaController {
             res.status(500).json({ mensaje: 'Error al obtener programas' });
         }
     }
+
+    async eliminarPrograma(req, res) {
+    try {
+        const { id } = req.params;
+
+        // 1. Verificar que exista
+        const [existe] = await db.query(
+            "SELECT id_programa FROM programa_formacion WHERE id_programa = ?",
+            [id]
+        );
+
+        if (existe.length === 0) {
+            return res.status(404).json({ mensaje: "Programa no encontrado" });
+        }
+
+        // 2. Eliminar programa
+        await db.query("DELETE FROM programa_formacion WHERE id_programa = ?", [id]);
+
+        res.json({ mensaje: "Programa eliminado correctamente" });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ mensaje: "Error al eliminar programa" });
+    }
+}
+
 }
 
 module.exports = ProgramaController

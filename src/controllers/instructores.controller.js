@@ -111,5 +111,32 @@ class InstructoresController {
             res.status(500).json({ error: 'Error al eliminar usuario' });
         }
     }
+
+    async obtenerInstructorPorEmail(req, res) {
+    const { email } = req.params;
+
+    try {
+        const [rows] = await db.query(
+            `SELECT 
+                id_instructor,
+                nombre,
+                email
+            FROM instructores
+            WHERE email = ?`,
+            [email]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ mensaje: "Instructor no encontrado" });
+        }
+
+        res.json(rows[0]);
+        
+    } catch (error) {
+        console.error("❌ Error al buscar instructor por email:", error);
+        res.status(500).json({ mensaje: "Error interno al buscar instructor" });
+    }
+}
+
 }
 module.exports = InstructoresController;
