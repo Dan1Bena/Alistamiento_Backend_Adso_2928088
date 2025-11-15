@@ -118,7 +118,7 @@ CREATE TABLE trimestre (
 CREATE TABLE raps (
   id_rap INT AUTO_INCREMENT PRIMARY KEY,
   id_competencia INT,
-  denominacion TEXT),
+  denominacion TEXT,
   duracion INT,
   codigo VARCHAR(20)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -174,12 +174,6 @@ ALTER TABLE fichas
   ADD CONSTRAINT fk_ficha_programa
     FOREIGN KEY (id_programa) REFERENCES programa_formacion (id_programa)
     ON DELETE SET NULL ON UPDATE CASCADE;
-
--- Programa_formacion -> (id_competencia) referencia a Competencia si existe
--- ALTER TABLE programa_formacion
---   ADD CONSTRAINT fk_programa_competencia
---     FOREIGN KEY (id_competencia) REFERENCES competencias (id_competencia)
---     ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Competencia -> Programa_formacion, RAPs
 ALTER TABLE competencias
