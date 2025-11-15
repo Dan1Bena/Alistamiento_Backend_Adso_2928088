@@ -17,7 +17,6 @@ def extraer_competencias(pdf_path: str) -> list:
     
     registros = []
     registro_actual = {}
-    hora_count = 0
     dentro_de_etapa_practica = False
 
     with pdfplumber.open(pdf_path) as pdf:
