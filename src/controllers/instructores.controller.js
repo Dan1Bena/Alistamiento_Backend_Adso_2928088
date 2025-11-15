@@ -1,5 +1,6 @@
 const db = require('../config/conexion_db');
 const bcrypt = require('bcrypt');
+const { enviarCredenciales } = require("../services/emailService");
 
 class InstructoresController {
     //Obtener Todos Los Usuarios Con Su Rol
@@ -54,16 +55,21 @@ class InstructoresController {
     //Agregar Un Usuario Nuevo
     async agregarInstructor(req, res) {
         const { id_rol = 2, nombre, email, contrasena, cedula, estado } = req.body;
+
         try {
             const hash = await bcrypt.hash(contrasena, 10);
 
+            // Guardar usuario en BD
             const [result] = await db.query(
                 'INSERT INTO instructores (id_rol, nombre, email, contrasena, cedula, estado) VALUES (?, ?, ?, ?, ?, ?)',
                 [id_rol, nombre, email, hash, cedula, estado]
             );
 
-            // Retornar el nuevo usuario creado (incluye los datos que React necesita)
+            // 🔹 Enviar correo con credenciales (contraseña en texto plano)
+            enviarCredenciales(email, nombre, contrasena);
+
             res.json({
+                mensaje: "Instructor creado y correo enviado correctamente",
                 id_instructor: result.insertId,
                 nombre,
                 email,
@@ -71,6 +77,7 @@ class InstructoresController {
                 id_rol,
                 estado
             });
+
         } catch (error) {
             console.error("❌ Error en agregarInstructor:", error);
             res.status(500).json({ mensaje: 'Error al agregar instructor' });
@@ -113,30 +120,30 @@ class InstructoresController {
     }
 
     async obtenerInstructorPorEmail(req, res) {
-    const { email } = req.params;
+        const { email } = req.params;
 
-    try {
-        const [rows] = await db.query(
-            `SELECT 
+        try {
+            const [rows] = await db.query(
+                `SELECT 
                 id_instructor,
                 nombre,
                 email
             FROM instructores
             WHERE email = ?`,
-            [email]
-        );
+                [email]
+            );
 
-        if (rows.length === 0) {
-            return res.status(404).json({ mensaje: "Instructor no encontrado" });
+            if (rows.length === 0) {
+                return res.status(404).json({ mensaje: "Instructor no encontrado" });
+            }
+
+            res.json(rows[0]);
+
+        } catch (error) {
+            console.error("❌ Error al buscar instructor por email:", error);
+            res.status(500).json({ mensaje: "Error interno al buscar instructor" });
         }
-
-        res.json(rows[0]);
-        
-    } catch (error) {
-        console.error("❌ Error al buscar instructor por email:", error);
-        res.status(500).json({ mensaje: "Error interno al buscar instructor" });
     }
-}
 
     // Camila G.
     // Obtener fichas asignadas a un instructor

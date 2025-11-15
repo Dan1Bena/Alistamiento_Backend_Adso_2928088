@@ -18,6 +18,7 @@ app.use('/api/instructores', require('./routes/instructor.routes'));
 app.use('/api/pdf', require('./routes/pdf.routes'));
 app.use('/api/fichas', require('./routes/fichas.routes'));
 app.use('/api/programas', require('./routes/programas.routes'));
+app.use("/api", require("./routes/fichas.routes"));
 
 module.exports = app;
 

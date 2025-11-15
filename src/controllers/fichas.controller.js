@@ -95,6 +95,31 @@ class FichasController {
       res.status(500).json({ error: "Error al crear ficha" });
     }
   }
+
+  async eliminarFicha(req, res) {
+    const { id } = req.params;
+
+    try {
+      // Verificar si la ficha existe
+      const [existe] = await db.query(
+        "SELECT id_ficha FROM fichas WHERE id_ficha = ?",
+        [id]
+      );
+
+      if (existe.length === 0) {
+        return res.status(404).json({ error: "Ficha no encontrada" });
+      }
+
+      // Eliminar la ficha
+      await db.query("DELETE FROM fichas WHERE id_ficha = ?", [id]);
+
+      res.json({ mensaje: "Ficha eliminada correctamente" });
+    } catch (error) {
+      console.error("Error eliminando ficha:", error);
+      res.status(500).json({ error: "Error al eliminar la ficha" });
+    }
+  }
+
 }
 
 module.exports = FichasController;
