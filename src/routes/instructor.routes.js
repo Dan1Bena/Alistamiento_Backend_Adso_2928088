@@ -12,6 +12,7 @@ router.get('/:id', (req, res) => instructoresController.obtenerInstructorPorId(r
 router.get('/email/:email', instructoresController.obtenerInstructorPorEmail);
 router.post('/', (req, res) => instructoresController.agregarInstructor(req, res));
 router.put('/:id', (req, res) => instructoresController.actualizarInstructor(req, res));
+router.put('/:id/cambiar-contrasena', (req, res) => instructoresController.cambiarContrasena(req, res));
 router.delete('/:id', (req, res) => instructoresController.eliminarInstructor(req, res));
 
 module.exports = router;

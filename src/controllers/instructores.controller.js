@@ -176,5 +176,69 @@ class InstructoresController {
             res.status(500).json({ error: "Error al obtener fichas del instructor" });
         }
     }
+
+    async cambiarContrasena(req, res) {
+        try {
+            const { id } = req.params;
+            const { nueva_contrasena } = req.body;
+
+            if (!nueva_contrasena) {
+                return res.status(400).json({ error: 'La nueva contraseña es obligatoria' });
+            }
+
+            const hashed = await bcrypt.hash(nueva_contrasena, 10);
+
+            await db.query(
+                "UPDATE instructores SET contrasena = ? WHERE id_instructor = ?",
+                [hashed, id]
+            );
+
+            return res.json({ mensaje: 'Contraseña actualizada correctamente' });
+        } catch (error) {
+            console.error("Error al cambiar contraseña:", error);
+            res.status(500).json({ error: 'Error del servidor' });
+        }
+    }
+
+    async cambiarContrasena(req, res) {
+        try {
+            const { id } = req.params;
+            const { nueva_contrasena } = req.body;
+
+            console.log("🔄 Cambiando contraseña para instructor ID:", id);
+            console.log("📝 Nuevo estado primer_acceso: 0");
+
+            if (!nueva_contrasena) {
+                return res.status(400).json({ error: 'La nueva contraseña es obligatoria' });
+            }
+
+            const hashed = await bcrypt.hash(nueva_contrasena, 10);
+
+            // ACTUALIZAR LA CONTRASEÑA Y MARCAR QUE YA NO ES PRIMER ACCESO
+            const [result] = await db.query(
+                "UPDATE instructores SET contrasena = ?, primer_acceso = 0 WHERE id_instructor = ?",
+                [hashed, id]
+            );
+
+            console.log("✅ Contraseña actualizada. Filas afectadas:", result.affectedRows);
+
+            // Verificar el cambio
+            const [updatedUser] = await db.query(
+                "SELECT primer_acceso FROM instructores WHERE id_instructor = ?",
+                [id]
+            );
+
+            console.log("🔍 Estado actual de primer_acceso:", updatedUser[0]?.primer_acceso);
+
+            return res.json({
+                mensaje: 'Contraseña actualizada correctamente',
+                primer_acceso: false
+            });
+        } catch (error) {
+            console.error("❌ Error al cambiar contraseña:", error);
+            res.status(500).json({ error: 'Error del servidor' });
+        }
+    }
+
 }
 module.exports = InstructoresController;

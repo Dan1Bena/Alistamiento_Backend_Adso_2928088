@@ -44,6 +44,18 @@ class AuthController {
         { expiresIn: '2h' }
       );
 
+      // ✅ AGREGAR: Verificar si existe la columna primer_acceso
+      let primer_acceso = true; // Valor por defecto
+      
+      // Si la columna existe en la base de datos, usar su valor
+      if (instructor.primer_acceso !== undefined) {
+        primer_acceso = instructor.primer_acceso === 1;
+      } else {
+        console.warn('⚠️ Columna primer_acceso no encontrada en la tabla instructores');
+      }
+
+      console.log("🔍 Login - primer_acceso:", primer_acceso);
+
       // Respuesta al frontend
       res.json({
         mensaje: 'Inicio de sesión exitoso',
@@ -53,7 +65,8 @@ class AuthController {
           nombre: instructor.nombre,
           email: instructor.email,
           rol: instructor.rol || 'Sin rol',
-          permisos: permisos.map(p => p.permiso)
+          permisos: permisos.map(p => p.permiso),
+          primer_acceso: primer_acceso // ✅ ENVIAR ESTE CAMPO
         }
       });
     } catch (error) {
