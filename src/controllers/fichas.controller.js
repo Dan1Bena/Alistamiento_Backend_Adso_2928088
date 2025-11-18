@@ -61,37 +61,39 @@ class FichasController {
   }
 
   async agregarFichas(req, res) {
-    const { id_programa, codigo_ficha, modalidad, jornada, ambiente, fecha_inicio, fecha_final, cantidad_trimestre } = req.body;
+    const { id_programa, codigo_ficha, modalidad, jornada, ambiente, fecha_inicio, fecha_final, cantidad_trimestre, id_instructor } = req.body;
+
+    console.log("🔍 [BACKEND] Datos recibidos:", req.body);
 
     try {
-      // MODIFICA ESTA PARTE:
+      // 1. Crear la ficha
       const [result] = await db.query(
         `INSERT INTO fichas (id_programa, codigo_ficha, modalidad, jornada, ambiente, fecha_inicio, fecha_final, cantidad_trimestre) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [id_programa, codigo_ficha, modalidad, jornada, ambiente, fecha_inicio, fecha_final, cantidad_trimestre]
       );
 
-      // Obtener la ficha recién creada
-      const [fichaCreada] = await db.query(
-        `SELECT
-      f.id_ficha,
-      f.codigo_ficha,
-      f.modalidad,
-      f.jornada,
-      f.ambiente AS ubicacion,
-      f.fecha_inicio,
-      f.fecha_final AS fecha_fin,
-      f.cantidad_trimestre,
-      f.id_programa,
-      p.nombre_programa
-      FROM fichas f
-      LEFT JOIN programa_formacion p ON f.id_programa = p.id_programa
-      WHERE f.id_ficha = ?`,
-        [result.insertId]
-      );
+      console.log("🔍 [BACKEND] Resultado del INSERT:", result);
+      console.log("🔍 [BACKEND] insertId devuelto:", result.insertId);
+      
+      const id_ficha = result.insertId;
 
-      res.json({ mensaje: 'Ficha creada exitosamente', ficha: fichaCreada[0] });
+      // 2. Asignar ficha al instructor
+      if (id_instructor) {
+        console.log("🔍 [BACKEND] Asignando: instructor", id_instructor, "a ficha", id_ficha);
+        await db.query(
+          'INSERT INTO instructor_ficha (id_instructor, id_ficha) VALUES (?, ?)',
+          [id_instructor, id_ficha]
+        );
+        console.log("✅ [BACKEND] Asignación completada");
+      }
+
+      res.json({ 
+        mensaje: "Ficha creada y asignada correctamente",
+        id_ficha: id_ficha
+      });
+
     } catch (error) {
-      console.error("Error al crear ficha:", error);
+      console.error("❌ [BACKEND] Error:", error);
       res.status(500).json({ error: "Error al crear ficha" });
     }
   }
@@ -119,7 +121,6 @@ class FichasController {
       res.status(500).json({ error: "Error al eliminar la ficha" });
     }
   }
-
 }
 
 module.exports = FichasController;
