@@ -7,29 +7,6 @@ def log_debug(mensaje):
     """Enviar logs a stderr para no contaminar stdout"""
     print(mensaje, file=sys.stderr, flush=True)
 
-
-def _extraer_valor_celda(fila, indice):
-    """
-    Extrae y limpia el valor de una celda específica
-    
-    Args:
-        fila: Lista de valores de la fila
-        indice: Índice de la celda a extraer
-        
-    Returns:
-        str: Valor limpio o None
-    """
-    try:
-        if len(fila) > indice and fila[indice]:
-            valor = str(fila[indice]).strip()
-            # Eliminar valores que son solo espacios o None
-            if valor and valor.lower() not in ['none', 'null', '']:
-                return valor
-    except (IndexError, AttributeError):
-        pass
-    return None
-
-
 def extraer_proyecto(pdf_path: str) -> list:
     """
     Extrae información del proyecto formativo del PDF del SENA
@@ -141,3 +118,128 @@ def extraer_proyecto(pdf_path: str) -> list:
     except Exception as e:
         log_debug(f"Error en extracción de proyectos: {str(e)}")
         raise
+
+def extraer_fases_proyecto(pdf_path: str) -> list:
+    """
+    Extrae las fases del proyecto formativo del PDF del SENA
+    
+    Args:
+        pdf_path: Ruta absoluta al archivo PDF
+        
+    Returns:
+        list: Lista única de fases encontradas (sin duplicados)
+    """
+    
+    # Definir los targets de búsqueda
+    TARGET_PLANEACION = "PLANEACION DEL PROYECTO"
+    TARGET_FASES = "FASES DEL PROYECTO"
+    
+    # Set para evitar duplicados
+    fases_encontradas = set()
+    
+    # Lista de fases válidas (las 4 que mencionaste)
+    FASES_VALIDAS = ["ANALISIS", "PLANEACION", "EJECUCION", "EVALUACION"]
+    
+    en_seccion_planeacion = False
+    
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            for page_num, page in enumerate(pdf.pages, 1):
+                tablas = page.extract_tables()
+                
+                if not tablas:
+                    continue
+                
+                for tabla in tablas:
+                    for fila in tabla:
+                        if not fila or all(c is None or c.strip() == "" for c in fila):
+                            continue
+
+                        # Convertir toda la fila a texto normalizado
+                        texto_fila = " ".join([str(c).strip() for c in fila if c]).strip()
+                        texto_norm = norm(texto_fila)
+                        
+                        # Detectar si estamos en la sección de planeación
+                        if TARGET_PLANEACION in texto_norm or TARGET_FASES in texto_norm:
+                            en_seccion_planeacion = True
+                            log_debug(f"Sección 'Planeación del proyecto' detectada en página {page_num}")
+                            continue
+                        
+                        # Si no estamos en la sección, continuar
+                        if not en_seccion_planeacion:
+                            continue
+                        
+                        # Detectar fin de sección (cuando llegue a otra sección principal)
+                        if "RUBROS PRESUPUESTALES" in texto_norm or \
+                           "EQUIPO QUE PARTICIPO" in texto_norm or \
+                           "VALORACION PRODUCTIVA" in texto_norm:
+                            en_seccion_planeacion = False
+                            log_debug(f"Fin de sección 'Planeación del proyecto' en página {page_num}")
+                            break
+                        
+                        # Buscar fases válidas en la primera columna
+                        primera_celda = norm(fila[0] or "") if fila else ""
+                        
+                        # Verificar si la primera celda contiene alguna fase válida
+                        for fase in FASES_VALIDAS:
+                            if fase in primera_celda:
+                                fases_encontradas.add(fase)
+                                log_debug(f" Fase encontrada: {fase}")
+                                break
+
+        # Convertir set a lista ordenada
+        fases_resultado = []
+        
+        # Ordenar las fases según el orden lógico del proyecto
+        orden_fases = ["ANALISIS", "PLANEACION", "EJECUCION", "EVALUACION"]
+        for fase in orden_fases:
+            if fase in fases_encontradas:
+                fases_resultado.append({"nombre": fase})
+        
+        log_debug(f"\nTotal fases únicas extraídas: {len(fases_resultado)}")
+        log_debug(f" Fases: {[f['nombre'] for f in fases_resultado]}")
+        
+        return fases_resultado
+    
+    except Exception as e:
+        log_debug(f"Error en extracción de fases: {str(e)}")
+        import traceback
+        log_debug(traceback.format_exc())
+        raise
+
+
+# === PRUEBA DEL MÓDULO ===
+if __name__ == "__main__":
+    import json
+    
+    if len(sys.argv) < 2:
+        print("Uso: python proyecto_extractor.py <ruta_pdf>", file=sys.stderr)
+        sys.exit(1)
+    
+    pdf_path = sys.argv[1]
+    
+    log_debug("=" * 60)
+    log_debug("INICIANDO EXTRACCIÓN DE PROYECTO")
+    log_debug("=" * 60)
+    
+    # Extraer información del proyecto
+    proyectos = extraer_proyecto(pdf_path)
+    
+    log_debug("\n" + "=" * 60)
+    log_debug("INICIANDO EXTRACCIÓN DE FASES")
+    log_debug("=" * 60)
+    
+    # Extraer fases del proyecto
+    fases = extraer_fases_proyecto(pdf_path)
+    
+    # Crear resultado en formato JSON
+    resultado = {
+        "success": True,
+        "data": {
+            "proyectos": proyectos,
+            "fases": fases
+        }
+    }
+    
+    # Imprimir JSON a stdout
+    print(json.dumps(resultado, ensure_ascii=False, indent=2), flush=True)
