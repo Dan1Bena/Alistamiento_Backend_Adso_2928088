@@ -35,7 +35,8 @@ CREATE TABLE instructores (
   email VARCHAR(150),
   contrasena VARCHAR(200),
   cedula VARCHAR(50),
-  estado ENUM("Activo", "Deshabilitado")
+  estado ENUM("Activo", "Deshabilitado"),
+  primer_acceso TINYINT DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE instructor_ficha (
@@ -85,7 +86,6 @@ CREATE TABLE fases (
 CREATE TABLE proyectos (
   id_proyecto INT AUTO_INCREMENT PRIMARY KEY,
   id_programa INT, -- FK a Programa_formacion
-  id_fase INT,     -- FK a Fases
   codigo_proyecto TEXT,
   nombre_proyecto TEXT,
   codigo_programa VARCHAR(20),
@@ -213,9 +213,6 @@ ALTER TABLE competencias
 ALTER TABLE proyectos
   ADD CONSTRAINT fk_proyectos_programa
     FOREIGN KEY (id_programa) REFERENCES programa_formacion (id_programa)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  ADD CONSTRAINT fk_proyectos_fase
-    FOREIGN KEY (id_fase) REFERENCES fases (id_fase)
     ON DELETE SET NULL ON UPDATE CASCADE;
     
 ALTER TABLE raps
@@ -264,31 +261,64 @@ ALTER TABLE criterios_evaluacion
 -- ======================
 -- Indexes (opcional, para mejorar consultas sobre FKs)
 -- ======================
-CREATE INDEX idx_ficha_programa ON fichas (id_programa);
-CREATE INDEX idx_competencia_programa ON competencias (id_programa);
-CREATE INDEX idx_rap_competencias ON raps (id_rap);
-CREATE INDEX idx_proyectos_programa ON proyectos (id_programa);
-CREATE INDEX idx_proyectos_fase ON proyectos (id_fase);
-CREATE INDEX idx_planeacion_ficha ON planeacion_pedagogica (id_ficha);
-CREATE INDEX idx_guia_planeacion ON guia_aprendizaje (id_planeacion);
-CREATE INDEX idx_trimestre_planeacion ON trimestre (id_planeacion);
-CREATE INDEX idx_conproc_rap ON conocimiento_proceso (id_rap);
-CREATE INDEX idx_consaber_rap ON conocimiento_saber (id_rap);
-CREATE INDEX idx_criterios_rap ON criterios_evaluacion (id_rap);
+DELIMITER $$
 
--- ======================
--- Verificación final
--- ======================
+CREATE PROCEDURE asignar_rap_trimestre (
+    IN p_id_rap INT,
+    IN p_id_trimestre INT
+)
+BEGIN
+    DECLARE v_duracion_competencia INT DEFAULT 0;
+    DECLARE v_raps_competencia INT DEFAULT 0;
+    DECLARE v_trimestres_competencia INT DEFAULT 0;
+    DECLARE v_horas_trimestre FLOAT DEFAULT 0;
+    DECLARE v_horas_semana FLOAT DEFAULT 0;
+    DECLARE v_id_competencia INT DEFAULT 0;
 
-select * from programa_formacion;
-select * from proyectos;
-select * from competencias;
-select * from raps;
-select * from actividades_proyecto;
-select * from actividad_rap;
-select * from fichas;
-select * from fases;
+    -- Obtener competencia relacionada al RAP
+    SELECT id_competencia INTO v_id_competencia
+    FROM raps
+    WHERE id_rap = p_id_rap
+    LIMIT 1;
 
+    IF v_id_competencia IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El RAP no tiene competencia asociada';
+    END IF;
+
+    -- Duración máxima de la competencia (horas)
+    SELECT duracion_maxima INTO v_duracion_competencia
+    FROM competencias
+    WHERE id_competencia = v_id_competencia
+    LIMIT 1;
+
+    -- Cuántos RAPs tiene esa competencia
+    SELECT COUNT(*) INTO v_raps_competencia
+    FROM raps
+    WHERE id_competencia = v_id_competencia;
+
+    -- Cuántos trimestres se le han asignado ya
+    SELECT COUNT(*) INTO v_trimestres_competencia
+    FROM rap_trimestre
+    WHERE id_rap = p_id_rap;
+
+    IF v_trimestres_competencia = 0 THEN
+        SET v_trimestres_competencia = 1;
+    END IF;
+
+    -- Fórmula oficial SENA
+    SET v_horas_trimestre = v_duracion_competencia / v_raps_competencia / v_trimestres_competencia;
+    SET v_horas_semana = v_horas_trimestre / 11;
+
+    -- Insert / update
+    INSERT INTO rap_trimestre (id_rap, id_trimestre, horas_trimestre, horas_semana, estado)
+    VALUES (p_id_rap, p_id_trimestre, v_horas_trimestre, v_horas_semana, 'Planeado')
+    ON DUPLICATE KEY UPDATE
+        horas_trimestre = VALUES(horas_trimestre),
+        horas_semana = VALUES(horas_semana);
+
+END $$
+
+DELIMITER ;
 
 CREATE OR REPLACE VIEW v_sabana_base AS
 SELECT 
@@ -353,3 +383,42 @@ GROUP BY
     id_competencia, codigo_norma, nombre_competencia, duracion_maxima,
     id_rap, codigo_rap, descripcion_rap, duracion_rap;
 -- La vista v_sabana_matriz presenta los datos en formato matriz para análisis comparativo.
+
+
+-- ======================
+-- Verificación final
+-- ======================
+
+CALL asignar_rap_trimestre(2, 2);
+CALL asignar_rap_trimestre(4, 3);
+
+select * from programa_formacion;
+select * from proyectos;
+select * from competencias;
+select * from raps;
+select * from actividades_proyecto;
+select * from actividad_rap;
+select * from fichas;
+select * from fases;
+SELECT * FROM rap_trimestre;
+SELECT * FROM v_sabana_base;
+SELECT * FROM v_sabana_matriz;
+UPDATE instructores SET primer_acceso = 0 WHERE id_instructor = 1; -- Admin
+UPDATE instructores SET primer_acceso = 1 WHERE id_instructor = 2; -- Instructor nuevo
+
+INSERT INTO roles (nombre) VALUES ('Administrador');
+INSERT INTO roles (nombre) VALUES ('Instructor');
+INSERT INTO roles (nombre) VALUES ('Gestor');
+INSERT INTO instructores (id_rol, nombre, email, contrasena, cedula, estado)
+VALUES (1, 'Jace', 'instructor@sena.edu.co', '$2a$10$tksuZTKKUcHP63p8QvD0LOPTPT8PmJeTw25tnrLIkPNpIsLg5e7G.', '1007836815', '1');
+
+INSERT INTO trimestre (no_trimestre, fase)
+VALUES 
+(1,'ANÁLISIS'),
+(2,'ANÁLISIS'),
+(3,'PLANEACIÓN'),
+(4,'EJECUCIÓN'),
+(5,'EJECUCIÓN'),
+(6,'EJECUCIÓN'),
+(7,'EVALUACIÓN');
+
