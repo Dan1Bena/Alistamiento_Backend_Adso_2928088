@@ -156,6 +156,19 @@ CREATE TABLE criterios_evaluacion (
   nombre MEDIUMTEXT NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE rap_trimestre (
+    id_rap_trimestre INT AUTO_INCREMENT PRIMARY KEY,
+    id_rap INT NOT NULL,
+    id_trimestre INT NOT NULL,
+    horas_trimestre INT NULL,
+    horas_semana FLOAT NULL,
+    estado ENUM('Planeado', 'En curso', 'Finalizado') DEFAULT 'Planeado',
+    
+    FOREIGN KEY (id_rap) REFERENCES raps(id_rap) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (id_trimestre) REFERENCES trimestre(id_trimestre) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+
 -- ======================
 -- Agregar constraints FK (integridad referencial)
 -- ======================
@@ -277,23 +290,66 @@ select * from fichas;
 select * from fases;
 
 
+CREATE OR REPLACE VIEW v_sabana_base AS
+SELECT 
+    p.id_proyecto,
+    p.codigo_proyecto,
+    p.nombre_proyecto,
+    c.id_competencia,
+    c.codigo_norma,
+    c.nombre_competencia,
+    c.duracion_maxima,
+    r.id_rap,
+    r.codigo AS codigo_rap,
+    r.denominacion AS descripcion_rap,
+    r.duracion AS duracion_rap,
+    t.no_trimestre,
+    rt.horas_trimestre,
+    rt.horas_semana,
+    t.fase AS nombre_fase,
+    rt.estado
+FROM proyectos p
+JOIN competencias c ON p.id_programa = c.id_programa
+JOIN raps r ON r.id_competencia = c.id_competencia
+LEFT JOIN rap_trimestre rt ON rt.id_rap = r.id_rap
+LEFT JOIN trimestre t ON rt.id_trimestre = t.id_trimestre
+ORDER BY c.id_competencia, r.id_rap, t.no_trimestre;
+-- La vista v_sabana_base proporciona una visión consolidada del alistamiento.
 
-SHOW TABLES;
+CREATE OR REPLACE VIEW v_sabana_matriz AS
+SELECT 
+    id_proyecto,
+    codigo_proyecto,
+    nombre_proyecto,
+    id_competencia,
+    codigo_norma,
+    nombre_competencia,
+    duracion_maxima,
+    id_rap,
+    codigo_rap,
+    descripcion_rap,
+    duracion_rap,
 
-DESCRIBE permisos;
-DESCRIBE roles;
-DESCRIBE roles_permisos;
-DESCRIBE instructores;
-DESCRIBE instructor_ficha;
-DESCRIBE programa_formacion;
-DESCRIBE fichas;
-DESCRIBE competencias;
-DESCRIBE fases;
-DESCRIBE proyectos;
-DESCRIBE planeacion_pedagogica;
-DESCRIBE guia_aprendizaje;
-DESCRIBE trimestre;
-DESCRIBE raps;
-DESCRIBE conocimiento_proceso;
-DESCRIBE conocimiento_saber;
-DESCRIBE criterios_evaluacion;
+    MAX(CASE WHEN no_trimestre = 1 THEN horas_trimestre END) AS t1_htrim,
+    MAX(CASE WHEN no_trimestre = 1 THEN horas_semana END) AS t1_hsem,
+    MAX(CASE WHEN no_trimestre = 2 THEN horas_trimestre END) AS t2_htrim,
+    MAX(CASE WHEN no_trimestre = 2 THEN horas_semana END) AS t2_hsem,
+    MAX(CASE WHEN no_trimestre = 3 THEN horas_trimestre END) AS t3_htrim,
+    MAX(CASE WHEN no_trimestre = 3 THEN horas_semana END) AS t3_hsem,
+    MAX(CASE WHEN no_trimestre = 4 THEN horas_trimestre END) AS t4_htrim,
+    MAX(CASE WHEN no_trimestre = 4 THEN horas_semana END) AS t4_hsem,
+    MAX(CASE WHEN no_trimestre = 5 THEN horas_trimestre END) AS t5_htrim,
+    MAX(CASE WHEN no_trimestre = 5 THEN horas_semana END) AS t5_hsem,
+    MAX(CASE WHEN no_trimestre = 6 THEN horas_trimestre END) AS t6_htrim,
+    MAX(CASE WHEN no_trimestre = 6 THEN horas_semana END) AS t6_hsem,
+    MAX(CASE WHEN no_trimestre = 7 THEN horas_trimestre END) AS t7_htrim,
+    MAX(CASE WHEN no_trimestre = 7 THEN horas_semana END) AS t7_hsem,
+
+    SUM(horas_trimestre) AS total_horas
+
+FROM v_sabana_base
+GROUP BY 
+    id_proyecto, codigo_proyecto, nombre_proyecto,
+    id_competencia, codigo_norma, nombre_competencia, duracion_maxima,
+    id_rap, codigo_rap, descripcion_rap, duracion_rap;
+-- La vista v_sabana_matriz presenta los datos en formato matriz para análisis comparativo.

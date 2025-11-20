@@ -19,6 +19,7 @@ app.use('/api/pdf', require('./routes/pdf.routes'));
 app.use('/api/fichas', require('./routes/fichas.routes'));
 app.use('/api/programas', require('./routes/programas.routes'));
 app.use("/api", require("./routes/fichas.routes"));
+app.use('/api', require('./routes/sabana.routes'));
 
 module.exports = app;
 
