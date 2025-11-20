@@ -1,3 +1,4 @@
+const { log } = require("console");
 const db = require("../config/conexion_db");
 const PythonService = require("../services/pythonService");
 const fs = require("fs");
@@ -89,14 +90,14 @@ class PdfController {
 
       // === GUARDAR RAPs ===
       if (resultado.unidadRaps && resultado.unidadRaps.length > 0) {
-        console.log(`📦 Procesando ${resultado.unidadRaps.length} competencias...`);
+        console.log(`Procesando ${resultado.unidadRaps.length} competencias...`);
 
         for (const infoRap of resultado.unidadRaps) {
           const codigoCompetencia = infoRap.codigo_competencia;
           const raps = infoRap.resultados_aprendizaje || [];
 
           if (raps.length === 0) {
-            console.warn(`⚠️ Competencia ${codigoCompetencia} sin RAPs, saltando...`);
+            console.warn(`Competencia ${codigoCompetencia} sin RAPs, saltando...`);
             continue;
           }
 
@@ -107,7 +108,7 @@ class PdfController {
           );
 
           if (competenciaRow.length === 0) {
-            console.warn(`⚠️ Competencia ${codigoCompetencia} no encontrada en BD`);
+            console.warn(`Competencia ${codigoCompetencia} no encontrada en BD`);
             continue;
           }
 
@@ -118,7 +119,7 @@ class PdfController {
           // Calcular duración por RAP
           const duracionPorRap = duracionMaxima ? Math.round(duracionMaxima / numRaps) : null;
 
-          console.log(`\n🔹 ${codigoCompetencia}: ${numRaps} RAPs (${duracionMaxima}h total → ${duracionPorRap}h/RAP)`);
+          console.log(`\n ${codigoCompetencia}: ${numRaps} RAPs (${duracionMaxima}h total → ${duracionPorRap}h/RAP)`);
 
           // Insertar cada RAP
           for (let i = 0; i < raps.length; i++) {
@@ -217,6 +218,7 @@ class PdfController {
       console.log(`Procesando PDF del proyecto: ${pdfPath}`);
 
       const resultado = await PythonService.ejecutarScript(pdfPath, "proyecto");
+      const resultadoFases = await PythonService.ejecutarScript(pdfPath, "fases") 
 
       fs.unlinkSync(pdfPath);
 
@@ -249,9 +251,19 @@ class PdfController {
 
         const idProyecto = resultProyecto.insertId;
         console.log(`Proyecto guardado con ID: ${idProyecto}`);
+
+        if (resultadoFases.fases && resultadoFases.fases.length > 0) {
+          for(const fase of resultadoFases.fases) {
+              await connection.query(
+              `INSERT INTO fases (nombre) VALUES (?)`,
+              [fase.nombre]
+            );
+          }
+          console.log(`Fases guardadas: ${resultadoFases.fases.length}`);
+        }
       }
 
-      return res.status(200).json(resultado);
+      return res.status(200).json(resultado, resultadoFases);
     } catch (err) {
       console.error("Error procesando proyecto:", err);
       res.status(500).json({ error: err.message });
