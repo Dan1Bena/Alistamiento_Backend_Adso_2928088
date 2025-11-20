@@ -28,7 +28,7 @@ class PdfController {
       // Ejecutar script Python
       const resultado = await PythonService.ejecutarScript(pdfPath, tipo);
 
-      console.log("✅ Python retornó datos:", JSON.stringify(resultado, null, 2));
+      console.log("Python retornó datos:", JSON.stringify(resultado, null, 2));
 
       // Iniciar transacción
       await connection.beginTransaction();
@@ -219,6 +219,7 @@ class PdfController {
 
       const resultado = await PythonService.ejecutarScript(pdfPath, "proyecto");
       const resultadoFases = await PythonService.ejecutarScript(pdfPath, "fases") 
+      const resultadoActividades = await PythonService.ejecutarScript(pdfPath, "actividades");
 
       fs.unlinkSync(pdfPath);
 
@@ -263,7 +264,54 @@ class PdfController {
         }
       }
 
-      return res.status(200).json(resultado, resultadoFases);
+      if (resultadoActividades.actividades && resultadoActividades.actividades.length > 0) {
+         // === GUARDAR ACTIVIDADES Y RELACIONES ===
+        let actividadesGuardadas = 0;
+        let relacionesGuardadas = 0;
+
+        for (const act of resultadoActividades.actividades) {
+            // Insertar actividad
+            const [resultActividad] = await connection.query(
+                `INSERT INTO actividades_proyecto (fase, nombre_actividad) VALUES (?, ?)`,
+                [act.fase, act.nombre_actividad]
+            );
+
+            const idActividad = resultActividad.insertId;
+            actividadesGuardadas++;
+
+            // Relacionar con RAPs usando búsqueda por denominación
+            for (const [codigoRap, denominacion] of act.raps) {
+              // Buscar RAP por código Y denominación (búsqueda más precisa)
+              const [rapRow] = await connection.query(
+                `SELECT id_rap, denominacion
+                FROM raps
+                WHERE codigo = ? 
+                AND denominacion LIKE ?
+                LIMIT 1`,
+                [codigoRap, `%${denominacion.substring(0, 30)}%`]
+              );
+
+              if (rapRow.length > 0) {
+                const idRap = rapRow[0].id_rap;
+
+                // Insertar la relación en la tabla:
+                await connection.query(
+                  `INSERT INTO actividad_rap (id_actividad, id_rap) VALUES (?, ?)`,
+                  [idActividad, idRap]
+                );
+
+                relacionesGuardadas++;
+                console.log(`Relación: Actividad ${idActividad} ↔ RAP ${codigoRap}`);
+              } else {
+                console.warn(`RAP no encontrado:${codigoRap}`);
+              }
+            }
+        }
+        console.log(`\nResumen:`);
+        console.log(` Actividades guardadas: ${actividadesGuardadas}`);
+        console.log(`Relaciones guardadas: ${relacionesGuardadas}`);
+      }
+      return res.status(200).json(resultado);
     } catch (err) {
       console.error("Error procesando proyecto:", err);
       res.status(500).json({ error: err.message });

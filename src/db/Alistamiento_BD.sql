@@ -123,6 +123,21 @@ CREATE TABLE raps (
   codigo VARCHAR(20)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE actividades_proyecto (
+  id_actividad INT AUTO_INCREMENT PRIMARY KEY,
+  fase VARCHAR(100), -- ANALISIS, DESARROLLO, etc.
+  nombre_actividad TEXT NOT NULL
+);
+
+CREATE TABLE actividad_rap (
+  id_actividad INT,
+  id_rap INT,
+  PRIMARY KEY (id_actividad, id_rap),
+  FOREIGN KEY (id_actividad) REFERENCES actividades_proyecto(id_actividad),
+  FOREIGN KEY (id_rap) REFERENCES raps(id_rap)
+);
+
+
 CREATE TABLE conocimiento_proceso (
   id_conocimiento_proceso INT AUTO_INCREMENT PRIMARY KEY,
   id_rap INT, -- FK a RAPs
@@ -256,7 +271,11 @@ select * from programa_formacion;
 select * from proyectos;
 select * from competencias;
 select * from raps;
+select * from actividades_proyecto;
+select * from actividad_rap;
 select * from fichas;
+select * from fases;
+
 
 
 SHOW TABLES;

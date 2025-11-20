@@ -207,6 +207,117 @@ def extraer_fases_proyecto(pdf_path: str) -> list:
         log_debug(traceback.format_exc())
         raise
 
+def extraer_actividades_proyecto(pdf_path: str) -> list:
+    """
+    Extrae las actividades del proyecto y sus RAPs asociados
+    
+    Args:
+        pdf_path: Ruta absoluta al archivo PDF
+        
+    Returns:
+        list: Lista de diccionarios con actividades y sus RAPs
+    """
+    
+    TARGET_PLANEACION = "PLANEACION DEL PROYECTO"
+    TARGET_ACTIVIDADES = "ACTIVIDADES DEL PROYECTO"
+    
+    actividades = []
+    en_seccion_planeacion = False
+    fase_actual = None
+    
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            for page_num, page in enumerate(pdf.pages, 1):
+                tablas = page.extract_tables()
+                if not tablas:
+                    continue
+                for tabla in tablas:
+                    for fila in tabla:
+                        if not fila or all(c is None or c.strip() == "" for c in fila):
+                            continue
+                        
+                        # Convertir fila a texto
+                        texto_fila = " ".join([str(c).strip() for c in fila if c]).strip()
+                        texto_norm = norm(texto_fila)
+                        
+                        # Detectar sección de planeación
+                        if TARGET_PLANEACION in texto_norm or TARGET_ACTIVIDADES in texto_norm:
+                            en_seccion_planeacion = True
+                            log_debug(f"Sección 'Actividades del proyecto' detectada en página {page_num}")
+                            continue
+                        
+                        if not en_seccion_planeacion:
+                            continue
+                        
+                        # Detectar fin de sección
+                        if "RUBROS PRESUPUESTALES" in texto_norm or \
+                           "EQUIPO QUE PARTICIPO" in texto_norm:
+                            en_seccion_planeacion = False
+                            log_debug(f"Fin de sección en página {page_num}")
+                            break
+                        
+                        # La estructura de la tabla es:
+                        # [Fase, Actividad, RAPs/Código, Competencia]
+                        
+                        if len(fila) < 3:
+                            continue
+                        
+                        fase_celda = norm(fila[0] or "")
+                        actividad_celda = (fila[1] or "").strip()
+                        raps_celda = (fila[2] or "").strip()
+                        
+                        # Detectar nueva fase
+                        if fase_celda and fase_celda in ["ANALISIS", "PLANEACION", "EJECUCION", "EVALUACION"]:
+                            fase_actual = fase_celda
+                            log_debug(f"\nFase detectada: {fase_actual}")
+                        
+                        # Si hay actividad y RAPs, procesar
+                        if actividad_celda and raps_celda and fase_actual:
+                            raps_info = extraer_codigos_raps(raps_celda)
+                            
+                            if raps_info:
+                                actividad = {
+                                    "fase": fase_actual,
+                                    "nombre_actividad": actividad_celda,
+                                    "raps": raps_info
+                                }
+                                actividades.append(actividad)
+                                log_debug(f"Actividad: {actividad_celda[:50]}... | RAPs: {len(raps_info)}")
+
+        log_debug(f"\nTotal actividades extraídas: {len(actividades)}")
+        return actividades
+    
+    except Exception as e:
+        log_debug(f"Error en extracción de actividades: {str(e)}")
+        import traceback
+        log_debug(traceback.format_exc())
+        raise
+
+
+def extraer_codigos_raps(texto_raps: str) -> list:
+    """
+    Extrae los códigos de RAPs del texto
+    Formato esperado: "593343 - 01 IDENTIFICAR LA DINÁMICA..."
+    
+    Returns:
+        list: Lista de tuplas (codigo_rap, denominacion)
+        Ejemplo: [("01", "IDENTIFICAR LA DINÁMICA..."), ("02", "APLICAR...")]
+    """
+    raps = []
+    
+    # Patrón: Captura código corto (01, 02) y la denominación completa
+    # Formato: 593343 - 01 IDENTIFICAR LA DINÁMICA...
+    patron = r'\d{6,7}\s*-\s*(\d{1,2})\s+([A-ZÀÁÉÍÓÚÑ].+?)(?=\d{6,7}\s*-|\Z)'
+    matches = re.findall(patron, texto_raps, re.DOTALL)
+    
+    for match in matches:
+        codigo_rap = match[0].zfill(2)  # "01", "02", etc.
+        denominacion = match[1].strip()
+        denominacion = re.sub(r'\s+', ' ', denominacion)  # Limpiar espacios múltiples
+        raps.append((codigo_rap, denominacion[:100]))  # Primeros 100 chars
+    
+    return raps
+
 
 # === PRUEBA DEL MÓDULO ===
 if __name__ == "__main__":
@@ -231,13 +342,21 @@ if __name__ == "__main__":
     
     # Extraer fases del proyecto
     fases = extraer_fases_proyecto(pdf_path)
+
+    log_debug("\n" + "=" * 60)
+    log_debug("INICIANDO EXTRACCIÓN DE ACTIVIDADES DE PROYECTO")
+    log_debug("=" * 60)
+    
+    # Extraer actividades del proyecto
+    actividades = extraer_actividades_proyecto(pdf_path)
     
     # Crear resultado en formato JSON
     resultado = {
         "success": True,
         "data": {
             "proyectos": proyectos,
-            "fases": fases
+            "fases": fases,
+            "actividades" : actividades
         }
     }
     
