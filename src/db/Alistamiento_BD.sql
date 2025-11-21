@@ -254,13 +254,6 @@ ALTER TABLE criterios_evaluacion
     FOREIGN KEY (id_rap) REFERENCES raps (id_rap)
     ON DELETE CASCADE ON UPDATE CASCADE;
 
--- Relaciones adicionales solicitadas (FK declaradas aunque no estén conectadas visualmente)
--- Ejemplos: añadir columnas y FK hacia RAPs, Fases, Planeacion, Proyectos ya se hizo en tablas relevantes.
--- Si necesita más relaciones "extra", se pueden agregar aquí (dejamos los más significativos ya implementados).
-
--- ======================
--- Indexes (opcional, para mejorar consultas sobre FKs)
--- ======================
 DELIMITER $$
 
 CREATE PROCEDURE asignar_rap_trimestre (
@@ -269,35 +262,41 @@ CREATE PROCEDURE asignar_rap_trimestre (
 )
 BEGIN
     DECLARE v_duracion_competencia INT DEFAULT 0;
-    DECLARE v_raps_competencia INT DEFAULT 0;
-    DECLARE v_trimestres_competencia INT DEFAULT 0;
+    DECLARE v_raps_competencia INT DEFAULT 1;
+    DECLARE v_trimestres_competencia INT DEFAULT 1;
     DECLARE v_horas_trimestre FLOAT DEFAULT 0;
     DECLARE v_horas_semana FLOAT DEFAULT 0;
-    DECLARE v_id_competencia INT DEFAULT 0;
+    DECLARE v_id_competencia INT DEFAULT NULL;
 
-    -- Obtener competencia relacionada al RAP
+    -- Confirmar que el trimestre existe
+    IF NOT EXISTS (SELECT 1 FROM trimestre WHERE id_trimestre = p_id_trimestre) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El trimestre no existe';
+    END IF;
+
+    -- Competencia del RAP
     SELECT id_competencia INTO v_id_competencia
     FROM raps
     WHERE id_rap = p_id_rap
     LIMIT 1;
 
     IF v_id_competencia IS NULL THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El RAP no tiene competencia asociada';
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El RAP no tiene competencia asociada';
     END IF;
 
-    -- Duración máxima de la competencia (horas)
-    SELECT duracion_maxima INTO v_duracion_competencia
+    -- Duración de la competencia
+    SELECT COALESCE(duracion_maxima,0) INTO v_duracion_competencia
     FROM competencias
-    WHERE id_competencia = v_id_competencia
-    LIMIT 1;
+    WHERE id_competencia = v_id_competencia;
 
-    -- Cuántos RAPs tiene esa competencia
-    SELECT COUNT(*) INTO v_raps_competencia
+    -- Cantidad de RAPs de esa competencia
+    SELECT COALESCE(COUNT(*),1) INTO v_raps_competencia
     FROM raps
     WHERE id_competencia = v_id_competencia;
 
-    -- Cuántos trimestres se le han asignado ya
-    SELECT COUNT(*) INTO v_trimestres_competencia
+    -- Cantidad de trimestres asignados
+    SELECT COALESCE(COUNT(*),0) INTO v_trimestres_competencia
     FROM rap_trimestre
     WHERE id_rap = p_id_rap;
 
@@ -309,19 +308,68 @@ BEGIN
     SET v_horas_trimestre = v_duracion_competencia / v_raps_competencia / v_trimestres_competencia;
     SET v_horas_semana = v_horas_trimestre / 11;
 
-    -- Insert / update
+    -- Insert seguro
     INSERT INTO rap_trimestre (id_rap, id_trimestre, horas_trimestre, horas_semana, estado)
     VALUES (p_id_rap, p_id_trimestre, v_horas_trimestre, v_horas_semana, 'Planeado')
+    AS newVals
     ON DUPLICATE KEY UPDATE
-        horas_trimestre = VALUES(horas_trimestre),
-        horas_semana = VALUES(horas_semana);
+        horas_trimestre = newVals.horas_trimestre,
+        horas_semana = newVals.horas_semana,
+        estado = 'Planeado';
 
 END $$
 
-DELIMITER ;
+DELIMITER $$
+
+CREATE PROCEDURE quitar_rap_trimestre (
+    IN p_id_rap INT,
+    IN p_id_trimestre INT
+)
+BEGIN
+    DELETE FROM rap_trimestre
+    WHERE id_rap = p_id_rap AND id_trimestre = p_id_trimestre;
+
+    CALL recalcular_horas_rap(p_id_rap);
+END $$
+
+DELIMITER $$
+
+DELIMITER $$
+
+CREATE PROCEDURE recalcular_horas_rap (
+    IN p_id_rap INT
+)
+BEGIN
+    DECLARE v_duracion_competencia INT;
+    DECLARE v_raps_competencia INT;
+    DECLARE v_id_competencia INT;
+    DECLARE v_trimestres_competencia INT;
+    
+    SELECT id_competencia INTO v_id_competencia
+    FROM raps WHERE id_rap = p_id_rap;
+
+    SELECT duracion_maxima INTO v_duracion_competencia
+    FROM competencias WHERE id_competencia = v_id_competencia;
+
+    SELECT COUNT(*) INTO v_raps_competencia
+    FROM raps WHERE id_competencia = v_id_competencia;
+
+    SELECT COUNT(*) INTO v_trimestres_competencia
+    FROM rap_trimestre WHERE id_rap = p_id_rap;
+
+    UPDATE rap_trimestre
+    SET 
+        horas_trimestre = v_duracion_competencia / v_raps_competencia / v_trimestres_competencia,
+        horas_semana = (v_duracion_competencia / v_raps_competencia / v_trimestres_competencia) / 11
+    WHERE id_rap = p_id_rap;
+END $$
+
+DELIMITER $$
+
 
 CREATE OR REPLACE VIEW v_sabana_base AS
 SELECT 
+    f.id_ficha,
     p.id_proyecto,
     p.codigo_proyecto,
     p.nombre_proyecto,
@@ -338,16 +386,19 @@ SELECT
     rt.horas_semana,
     t.fase AS nombre_fase,
     rt.estado
-FROM proyectos p
+FROM fichas f
+JOIN proyectos p ON f.id_programa = p.id_programa
 JOIN competencias c ON p.id_programa = c.id_programa
 JOIN raps r ON r.id_competencia = c.id_competencia
-LEFT JOIN rap_trimestre rt ON rt.id_rap = r.id_rap
-LEFT JOIN trimestre t ON rt.id_trimestre = t.id_trimestre
-ORDER BY c.id_competencia, r.id_rap, t.no_trimestre;
--- La vista v_sabana_base proporciona una visión consolidada del alistamiento.
+LEFT JOIN planeacion_pedagogica pp ON pp.id_ficha = f.id_ficha
+LEFT JOIN trimestre t ON t.id_planeacion = pp.id_planeacion
+LEFT JOIN rap_trimestre rt ON rt.id_trimestre = t.id_trimestre
+ORDER BY c.id_competencia, t.no_trimestre, CAST(codigo_rap AS UNSIGNED);
+
 
 CREATE OR REPLACE VIEW v_sabana_matriz AS
 SELECT 
+	id_ficha,
     id_proyecto,
     codigo_proyecto,
     nombre_proyecto,
@@ -360,37 +411,43 @@ SELECT
     descripcion_rap,
     duracion_rap,
 
-    MAX(CASE WHEN no_trimestre = 1 THEN horas_trimestre END) AS t1_htrim,
-    MAX(CASE WHEN no_trimestre = 1 THEN horas_semana END) AS t1_hsem,
-    MAX(CASE WHEN no_trimestre = 2 THEN horas_trimestre END) AS t2_htrim,
-    MAX(CASE WHEN no_trimestre = 2 THEN horas_semana END) AS t2_hsem,
-    MAX(CASE WHEN no_trimestre = 3 THEN horas_trimestre END) AS t3_htrim,
-    MAX(CASE WHEN no_trimestre = 3 THEN horas_semana END) AS t3_hsem,
-    MAX(CASE WHEN no_trimestre = 4 THEN horas_trimestre END) AS t4_htrim,
-    MAX(CASE WHEN no_trimestre = 4 THEN horas_semana END) AS t4_hsem,
-    MAX(CASE WHEN no_trimestre = 5 THEN horas_trimestre END) AS t5_htrim,
-    MAX(CASE WHEN no_trimestre = 5 THEN horas_semana END) AS t5_hsem,
-    MAX(CASE WHEN no_trimestre = 6 THEN horas_trimestre END) AS t6_htrim,
-    MAX(CASE WHEN no_trimestre = 6 THEN horas_semana END) AS t6_hsem,
-    MAX(CASE WHEN no_trimestre = 7 THEN horas_trimestre END) AS t7_htrim,
-    MAX(CASE WHEN no_trimestre = 7 THEN horas_semana END) AS t7_hsem,
+    ROUND(MAX(CASE WHEN no_trimestre = 1 THEN horas_trimestre END)) AS t1_htrim,
+    ROUND(MAX(CASE WHEN no_trimestre = 1 THEN horas_semana END)) AS t1_hsem,
+    ROUND(MAX(CASE WHEN no_trimestre = 2 THEN horas_trimestre END)) AS t2_htrim,
+    ROUND(MAX(CASE WHEN no_trimestre = 2 THEN horas_semana END)) AS t2_hsem,
+    ROUND(MAX(CASE WHEN no_trimestre = 3 THEN horas_trimestre END)) AS t3_htrim,
+    ROUND(MAX(CASE WHEN no_trimestre = 3 THEN horas_semana END)) AS t3_hsem,
+    ROUND(MAX(CASE WHEN no_trimestre = 4 THEN horas_trimestre END)) AS t4_htrim,
+    ROUND(MAX(CASE WHEN no_trimestre = 4 THEN horas_semana END)) AS t4_hsem,
+    ROUND(MAX(CASE WHEN no_trimestre = 5 THEN horas_trimestre END)) AS t5_htrim,
+    ROUND(MAX(CASE WHEN no_trimestre = 5 THEN horas_semana END)) AS t5_hsem,
+    ROUND(MAX(CASE WHEN no_trimestre = 6 THEN horas_trimestre END)) AS t6_htrim,
+    ROUND(MAX(CASE WHEN no_trimestre = 6 THEN horas_semana END)) AS t6_hsem,
+    ROUND(MAX(CASE WHEN no_trimestre = 7 THEN horas_trimestre END)) AS t7_htrim,
+    ROUND(MAX(CASE WHEN no_trimestre = 7 THEN horas_semana END)) AS t7_hsem,
 
-    SUM(horas_trimestre) AS total_horas
+    COALESCE(SUM(horas_trimestre), 0) AS total_horas
 
 FROM v_sabana_base
 GROUP BY 
-    id_proyecto, codigo_proyecto, nombre_proyecto,
+    id_ficha, id_proyecto, codigo_proyecto, nombre_proyecto,
     id_competencia, codigo_norma, nombre_competencia, duracion_maxima,
-    id_rap, codigo_rap, descripcion_rap, duracion_rap;
+    id_rap, codigo_rap, descripcion_rap, duracion_rap
+ORDER BY 
+    id_competencia,
+    CAST(codigo_rap AS UNSIGNED),
+    id_rap;
 -- La vista v_sabana_matriz presenta los datos en formato matriz para análisis comparativo.
-
 
 -- ======================
 -- Verificación final
 -- ======================
 
-CALL asignar_rap_trimestre(2, 2);
-CALL asignar_rap_trimestre(4, 3);
+CALL asignar_rap_trimestre(1, 23);
+
+CALL recalcular_horas_rap(1);
+
+CALL quitar_rap_trimestre(1, );
 
 select * from programa_formacion;
 select * from proyectos;
@@ -403,22 +460,37 @@ select * from fases;
 SELECT * FROM rap_trimestre;
 SELECT * FROM v_sabana_base;
 SELECT * FROM v_sabana_matriz;
+SELECT * FROM instructores;
+SELECT * FROM planeacion_pedagogica;
+SELECT * FROM trimestre;
 UPDATE instructores SET primer_acceso = 0 WHERE id_instructor = 1; -- Admin
 UPDATE instructores SET primer_acceso = 1 WHERE id_instructor = 2; -- Instructor nuevo
+
+INSERT INTO planeacion_pedagogica (
+    id_ficha, 
+    observaciones, 
+    fecha_creacion
+) VALUES (
+    3, 
+    'Planeación pedagógica del primer trimestre de la ficha 2928088. Se trabajarán competencias básicas de análisis y diseño de software. Los aprendices requieren refuerzo en lógica de programación.',
+    '2024-01-15'
+);
+
+delete from trimestre;
 
 INSERT INTO roles (nombre) VALUES ('Administrador');
 INSERT INTO roles (nombre) VALUES ('Instructor');
 INSERT INTO roles (nombre) VALUES ('Gestor');
 INSERT INTO instructores (id_rol, nombre, email, contrasena, cedula, estado)
-VALUES (1, 'Jace', 'instructor@sena.edu.co', '$2a$10$tksuZTKKUcHP63p8QvD0LOPTPT8PmJeTw25tnrLIkPNpIsLg5e7G.', '1007836815', '1');
+VALUES (2, 'Jace', 'instructor@sena.edu.co', '$2a$10$tksuZTKKUcHP63p8QvD0LOPTPT8PmJeTw25tnrLIkPNpIsLg5e7G.', '1007836815', '1');
 
-INSERT INTO trimestre (no_trimestre, fase)
+INSERT INTO trimestre (id_planeacion, no_trimestre, fase)
 VALUES 
-(1,'ANÁLISIS'),
-(2,'ANÁLISIS'),
-(3,'PLANEACIÓN'),
-(4,'EJECUCIÓN'),
-(5,'EJECUCIÓN'),
-(6,'EJECUCIÓN'),
-(7,'EVALUACIÓN');
+(2, 1,'ANÁLISIS'),
+(2, 2,'ANÁLISIS'),
+(2, 3,'PLANEACIÓN'),
+(2, 4,'EJECUCIÓN'),
+(2, 5,'EJECUCIÓN'),
+(2, 6,'EJECUCIÓN'),
+(2, 7,'EVALUACIÓN');
 

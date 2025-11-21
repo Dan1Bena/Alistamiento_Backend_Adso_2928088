@@ -198,7 +198,7 @@ class SabanaService {
     try {
       // Llamar al procedimiento almacenado
       await db.query('CALL asignar_rap_trimestre(?, ?)', [id_rap, id_trimestre]);
-      
+
       // Obtener los datos actualizados del RAP asignado
       const [resultados] = await db.query(
         `SELECT 
@@ -231,10 +231,10 @@ class SabanaService {
     try {
       // Llamar al procedimiento almacenado que quita el RAP
       await db.query('CALL quitar_rap_trimestre(?, ?)', [id_rap, id_trimestre]);
-      
+
       // Recalcular horas del RAP después de quitarlo
       await db.query('CALL recalcular_horas_rap(?)', [id_rap]);
-      
+
       return true;
     } catch (error) {
       console.error('Error en quitarRapTrimestre:', error);
@@ -249,9 +249,9 @@ class SabanaService {
    */
   async obtenerSabanaBase(id_ficha) {
     try {
-      // Obtener el programa de la ficha
+      // Validar que la ficha existe
       const [fichas] = await db.query(
-        `SELECT id_programa FROM fichas WHERE id_ficha = ?`,
+        `SELECT id_ficha FROM fichas WHERE id_ficha = ?`,
         [id_ficha]
       );
 
@@ -259,42 +259,12 @@ class SabanaService {
         throw new Error('Ficha no encontrada');
       }
 
-      const id_programa = fichas[0].id_programa;
-
-      // Obtener los trimestres de la ficha
-      const [trimestres] = await db.query(
-        `SELECT t.id_trimestre 
-         FROM trimestre t
-         JOIN planeacion_pedagogica pp ON t.id_planeacion = pp.id_planeacion
-         WHERE pp.id_ficha = ?`,
-        [id_ficha]
-      );
-
-      const ids_trimestres = trimestres.map(t => t.id_trimestre);
-
-      // Si no hay trimestres, retornar vista sin filtro de trimestre
-      if (ids_trimestres.length === 0) {
-        const [resultados] = await db.query(
-          `SELECT * FROM v_sabana_base 
-           WHERE id_proyecto IN (
-             SELECT id_proyecto FROM proyectos WHERE id_programa = ?
-           )
-           ORDER BY id_competencia, id_rap, no_trimestre`,
-          [id_programa]
-        );
-        return resultados;
-      }
-
-      // Filtrar por programa y trimestres de la ficha
-      const placeholders = ids_trimestres.map(() => '?').join(',');
+      // La vista v_sabana_base ya incluye id_ficha, filtrar directamente
       const [resultados] = await db.query(
         `SELECT * FROM v_sabana_base 
-         WHERE id_proyecto IN (
-           SELECT id_proyecto FROM proyectos WHERE id_programa = ?
-         )
-         AND (id_trimestre IS NULL OR id_trimestre IN (${placeholders}))
-         ORDER BY id_competencia, id_rap, no_trimestre`,
-        [id_programa, ...ids_trimestres]
+         WHERE id_ficha = ?
+         ORDER BY id_competencia, CAST(codigo_rap AS UNSIGNED), no_trimestre`,
+        [id_ficha]
       );
 
       return resultados;
@@ -311,9 +281,9 @@ class SabanaService {
    */
   async obtenerSabanaMatriz(id_ficha) {
     try {
-      // Obtener el programa de la ficha
+      // Validar que la ficha existe
       const [fichas] = await db.query(
-        `SELECT id_programa FROM fichas WHERE id_ficha = ?`,
+        `SELECT id_ficha FROM fichas WHERE id_ficha = ?`,
         [id_ficha]
       );
 
@@ -321,27 +291,12 @@ class SabanaService {
         throw new Error('Ficha no encontrada');
       }
 
-      const id_programa = fichas[0].id_programa;
-
-      // Obtener los trimestres de la ficha
-      const [trimestres] = await db.query(
-        `SELECT t.id_trimestre 
-         FROM trimestre t
-         JOIN planeacion_pedagogica pp ON t.id_planeacion = pp.id_planeacion
-         WHERE pp.id_ficha = ?`,
-        [id_ficha]
-      );
-
-      const ids_trimestres = trimestres.map(t => t.id_trimestre);
-
-      // Filtrar por programa
+      // La vista v_sabana_matriz ya incluye id_ficha, filtrar directamente
       const [resultados] = await db.query(
         `SELECT * FROM v_sabana_matriz 
-         WHERE id_proyecto IN (
-           SELECT id_proyecto FROM proyectos WHERE id_programa = ?
-         )
-         ORDER BY id_competencia, id_rap`,
-        [id_programa]
+         WHERE id_ficha = ?
+         ORDER BY id_competencia, CAST(codigo_rap AS UNSIGNED)`,
+        [id_ficha]
       );
 
       return resultados;
