@@ -110,7 +110,7 @@ CREATE TABLE guia_aprendizaje (
 
 CREATE TABLE trimestre (
   id_trimestre INT AUTO_INCREMENT PRIMARY KEY,
-  id_planeacion INT, -- FK a Planeacion_Pedagogica
+  id_ficha INT, -- FK a fichas
   no_trimestre INT,
   fase VARCHAR(30)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -159,12 +159,14 @@ CREATE TABLE criterios_evaluacion (
 CREATE TABLE rap_trimestre (
     id_rap_trimestre INT AUTO_INCREMENT PRIMARY KEY,
     id_rap INT NOT NULL,
+    id_ficha INT NOT NULL,
     id_trimestre INT NOT NULL,
     horas_trimestre INT NULL,
     horas_semana FLOAT NULL,
     estado ENUM('Planeado', 'En curso', 'Finalizado') DEFAULT 'Planeado',
     
     FOREIGN KEY (id_rap) REFERENCES raps(id_rap) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (id_ficha) REFERENCES fichas(id_ficha) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (id_trimestre) REFERENCES trimestre(id_trimestre) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -234,8 +236,8 @@ ALTER TABLE guia_aprendizaje
 
 -- Trimestre -> Planeacion_Pedagogica
 ALTER TABLE trimestre
-  ADD CONSTRAINT fk_trimestre_planeacion
-    FOREIGN KEY (id_planeacion) REFERENCES planeacion_pedagogica (id_planeacion)
+  ADD CONSTRAINT fk_trimestre_fichas
+    FOREIGN KEY (id_ficha) REFERENCES fichas (id_ficha)
     ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Conocimiento_Proceso, Conocimiento_Saber, Criterios_Evaluacion -> RAPs
@@ -254,125 +256,135 @@ ALTER TABLE criterios_evaluacion
     FOREIGN KEY (id_rap) REFERENCES raps (id_rap)
     ON DELETE CASCADE ON UPDATE CASCADE;
 
+DROP PROCEDURE IF EXISTS asignar_rap_trimestre;
 DELIMITER $$
 
-CREATE PROCEDURE asignar_rap_trimestre (
+CREATE PROCEDURE asignar_rap_trimestre(
     IN p_id_rap INT,
-    IN p_id_trimestre INT
+    IN p_id_trimestre INT,
+    IN p_id_ficha INT
 )
 BEGIN
-    DECLARE v_duracion_competencia INT DEFAULT 0;
-    DECLARE v_raps_competencia INT DEFAULT 1;
-    DECLARE v_trimestres_competencia INT DEFAULT 1;
+	DECLARE v_duracion_competencia INT DEFAULT 0;
+    DECLARE v_raps_competencia INT DEFAULT 0;
+    DECLARE v_trimestres INT DEFAULT 0;
     DECLARE v_horas_trimestre FLOAT DEFAULT 0;
     DECLARE v_horas_semana FLOAT DEFAULT 0;
-    DECLARE v_id_competencia INT DEFAULT NULL;
+    DECLARE v_id_competencia INT DEFAULT 0;
 
-    -- Confirmar que el trimestre existe
-    IF NOT EXISTS (SELECT 1 FROM trimestre WHERE id_trimestre = p_id_trimestre) THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'El trimestre no existe';
-    END IF;
-
-    -- Competencia del RAP
+    -- 1️ Obtener la competencia dueña del RAP
     SELECT id_competencia INTO v_id_competencia
     FROM raps
-    WHERE id_rap = p_id_rap
-    LIMIT 1;
+    WHERE id_rap = p_id_rap;
 
+    -- Validación de seguridad
     IF v_id_competencia IS NULL THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'El RAP no tiene competencia asociada';
     END IF;
 
-    -- Duración de la competencia
-    SELECT COALESCE(duracion_maxima,0) INTO v_duracion_competencia
+    -- 2️ Traer duración total de la competencia
+    SELECT duracion_maxima INTO v_duracion_competencia
     FROM competencias
     WHERE id_competencia = v_id_competencia;
 
-    -- Cantidad de RAPs de esa competencia
-    SELECT COALESCE(COUNT(*),1) INTO v_raps_competencia
+    -- 3️ Número de RAPs que tiene esa competencia
+    SELECT COUNT(*) INTO v_raps_competencia
     FROM raps
     WHERE id_competencia = v_id_competencia;
-
-    -- Cantidad de trimestres asignados
-    SELECT COALESCE(COUNT(*),0) INTO v_trimestres_competencia
+    
+    -- 4️ cuántos trimestres tiene asignado el RAP
+    SELECT COUNT(*) INTO v_trimestres
     FROM rap_trimestre
     WHERE id_rap = p_id_rap;
 
-    IF v_trimestres_competencia = 0 THEN
-        SET v_trimestres_competencia = 1;
+    IF v_trimestres = 0 THEN
+        SET v_trimestres = 1;
     END IF;
 
-    -- Fórmula oficial SENA
-    SET v_horas_trimestre = v_duracion_competencia / v_raps_competencia / v_trimestres_competencia;
+    -- 4️ Cálculo oficial SENA
+    SET v_horas_trimestre = v_duracion_competencia / v_raps_competencia / v_trimestres ;
     SET v_horas_semana = v_horas_trimestre / 11;
 
-    -- Insert seguro
-    INSERT INTO rap_trimestre (id_rap, id_trimestre, horas_trimestre, horas_semana, estado)
-    VALUES (p_id_rap, p_id_trimestre, v_horas_trimestre, v_horas_semana, 'Planeado')
-    AS newVals
+    -- 5 Insertar o actualizar
+    INSERT INTO rap_trimestre (id_rap, id_trimestre, id_ficha, horas_trimestre, horas_semana, estado)
+    VALUES (p_id_rap, p_id_trimestre, p_id_ficha, v_horas_trimestre, v_horas_semana, 'Planeado')
     ON DUPLICATE KEY UPDATE
-        horas_trimestre = newVals.horas_trimestre,
-        horas_semana = newVals.horas_semana,
-        estado = 'Planeado';
-
+        horas_trimestre = v_horas_trimestre,
+        horas_semana = v_horas_semana,
+		estado = 'Planeado';
 END $$
 
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS recalcular_horas_rap;
 DELIMITER $$
 
-CREATE PROCEDURE quitar_rap_trimestre (
+CREATE PROCEDURE recalcular_horas_rap(
     IN p_id_rap INT,
-    IN p_id_trimestre INT
-)
-BEGIN
-    DELETE FROM rap_trimestre
-    WHERE id_rap = p_id_rap AND id_trimestre = p_id_trimestre;
-
-    CALL recalcular_horas_rap(p_id_rap);
-END $$
-
-DELIMITER $$
-
-DELIMITER $$
-
-CREATE PROCEDURE recalcular_horas_rap (
-    IN p_id_rap INT
+    IN p_id_ficha INT
 )
 BEGIN
     DECLARE v_duracion_competencia INT;
     DECLARE v_raps_competencia INT;
     DECLARE v_id_competencia INT;
     DECLARE v_trimestres_competencia INT;
-    
+
+    -- Competencia del RAP
     SELECT id_competencia INTO v_id_competencia
     FROM raps WHERE id_rap = p_id_rap;
 
+    -- Duración máxima competencia
     SELECT duracion_maxima INTO v_duracion_competencia
     FROM competencias WHERE id_competencia = v_id_competencia;
 
+    -- Total RAPs de esa competencia
     SELECT COUNT(*) INTO v_raps_competencia
     FROM raps WHERE id_competencia = v_id_competencia;
 
+    -- Total trimestres asignados a ese RAP en esa ficha
     SELECT COUNT(*) INTO v_trimestres_competencia
-    FROM rap_trimestre WHERE id_rap = p_id_rap;
+    FROM rap_trimestre
+    WHERE id_rap = p_id_rap AND id_ficha = p_id_ficha;
 
+    IF v_trimestres_competencia = 0 THEN
+        SET v_trimestres_competencia = 1;
+    END IF;
+
+    -- Calcular horas por trimestre y por semana
     UPDATE rap_trimestre
-    SET 
+    SET
         horas_trimestre = v_duracion_competencia / v_raps_competencia / v_trimestres_competencia,
         horas_semana = (v_duracion_competencia / v_raps_competencia / v_trimestres_competencia) / 11
-    WHERE id_rap = p_id_rap;
+    WHERE id_rap = p_id_rap AND id_ficha = p_id_ficha;
 END $$
 
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS quitar_rap_trimestre;
 DELIMITER $$
 
+CREATE PROCEDURE quitar_rap_trimestre(
+    IN p_id_rap INT,
+    IN p_id_trimestre INT,
+    IN p_id_ficha INT
+)
+BEGIN
+    -- Eliminar asignación del trimestre
+    DELETE FROM rap_trimestre
+    WHERE id_rap = p_id_rap
+      AND id_trimestre = p_id_trimestre
+      AND id_ficha = p_id_ficha;
+
+    -- Recalcular horas del RAP en esa ficha
+    CALL recalcular_horas_rap(p_id_rap, p_id_ficha);
+END $$
+
+DELIMITER ;
 
 CREATE OR REPLACE VIEW v_sabana_base AS
 SELECT 
     f.id_ficha,
-    p.id_proyecto,
-    p.codigo_proyecto,
-    p.nombre_proyecto,
     c.id_competencia,
     c.codigo_norma,
     c.nombre_competencia,
@@ -382,26 +394,26 @@ SELECT
     r.denominacion AS descripcion_rap,
     r.duracion AS duracion_rap,
     t.no_trimestre,
+    t.fase AS nombre_fase,
     rt.horas_trimestre,
     rt.horas_semana,
-    t.fase AS nombre_fase,
     rt.estado
 FROM fichas f
 JOIN proyectos p ON f.id_programa = p.id_programa
-JOIN competencias c ON p.id_programa = c.id_programa
+JOIN competencias c ON c.id_programa = p.id_programa
 JOIN raps r ON r.id_competencia = c.id_competencia
-LEFT JOIN planeacion_pedagogica pp ON pp.id_ficha = f.id_ficha
-LEFT JOIN trimestre t ON t.id_planeacion = pp.id_planeacion
-LEFT JOIN rap_trimestre rt ON rt.id_trimestre = t.id_trimestre
-ORDER BY c.id_competencia, t.no_trimestre, CAST(codigo_rap AS UNSIGNED);
+-- CROSS JOIN con trimestres para crear todas las combinaciones RAP x Trimestre
+CROSS JOIN trimestre t
+-- Left join con asignaciones (puede ser NULL)
+LEFT JOIN rap_trimestre rt ON rt.id_rap = r.id_rap 
+    AND rt.id_trimestre = t.id_trimestre 
+    AND rt.id_ficha = f.id_ficha
+ORDER BY c.id_competencia, CAST(r.codigo AS UNSIGNED), r.id_rap;
 
 
 CREATE OR REPLACE VIEW v_sabana_matriz AS
 SELECT 
 	id_ficha,
-    id_proyecto,
-    codigo_proyecto,
-    nombre_proyecto,
     id_competencia,
     codigo_norma,
     nombre_competencia,
@@ -430,8 +442,7 @@ SELECT
 
 FROM v_sabana_base
 GROUP BY 
-    id_ficha, id_proyecto, codigo_proyecto, nombre_proyecto,
-    id_competencia, codigo_norma, nombre_competencia, duracion_maxima,
+    id_ficha, id_competencia, codigo_norma, nombre_competencia, duracion_maxima,
     id_rap, codigo_rap, descripcion_rap, duracion_rap
 ORDER BY 
     id_competencia,
@@ -443,11 +454,14 @@ ORDER BY
 -- Verificación final
 -- ======================
 
-CALL asignar_rap_trimestre(1, 23);
+CALL asignar_rap_trimestre(4, 1, 1);
+CALL asignar_rap_trimestre(1, 1, 1);
+CALL asignar_rap_trimestre(3, 2, 1);
+CALL asignar_rap_trimestre(2, 2, 1);
 
-CALL recalcular_horas_rap(1);
+CALL recalcular_horas_rap(3, 1);
 
-CALL quitar_rap_trimestre(1, );
+CALL quitar_rap_trimestre(1, 1, 1);
 
 select * from programa_formacion;
 select * from proyectos;
@@ -463,34 +477,26 @@ SELECT * FROM v_sabana_matriz;
 SELECT * FROM instructores;
 SELECT * FROM planeacion_pedagogica;
 SELECT * FROM trimestre;
+SELECT * FROM instructor_ficha;
 UPDATE instructores SET primer_acceso = 0 WHERE id_instructor = 1; -- Admin
 UPDATE instructores SET primer_acceso = 1 WHERE id_instructor = 2; -- Instructor nuevo
 
-INSERT INTO planeacion_pedagogica (
-    id_ficha, 
-    observaciones, 
-    fecha_creacion
-) VALUES (
-    3, 
-    'Planeación pedagógica del primer trimestre de la ficha 2928088. Se trabajarán competencias básicas de análisis y diseño de software. Los aprendices requieren refuerzo en lógica de programación.',
-    '2024-01-15'
-);
-
 delete from trimestre;
+DELETE FROM rap_trimestre;
 
 INSERT INTO roles (nombre) VALUES ('Administrador');
 INSERT INTO roles (nombre) VALUES ('Instructor');
 INSERT INTO roles (nombre) VALUES ('Gestor');
 INSERT INTO instructores (id_rol, nombre, email, contrasena, cedula, estado)
-VALUES (2, 'Jace', 'instructor@sena.edu.co', '$2a$10$tksuZTKKUcHP63p8QvD0LOPTPT8PmJeTw25tnrLIkPNpIsLg5e7G.', '1007836815', '1');
+VALUES (1, 'Admin', 'administracion@sena.edu.co', '$2a$10$tksuZTKKUcHP63p8QvD0LOPTPT8PmJeTw25tnrLIkPNpIsLg5e7G.', '1234567890', '1');
 
-INSERT INTO trimestre (id_planeacion, no_trimestre, fase)
+INSERT INTO trimestre (id_ficha, no_trimestre, fase)
 VALUES 
-(2, 1,'ANÁLISIS'),
-(2, 2,'ANÁLISIS'),
-(2, 3,'PLANEACIÓN'),
-(2, 4,'EJECUCIÓN'),
-(2, 5,'EJECUCIÓN'),
-(2, 6,'EJECUCIÓN'),
-(2, 7,'EVALUACIÓN');
+(1, 1,'ANÁLISIS'),
+(1, 2,'ANÁLISIS'),
+(1, 3,'PLANEACIÓN'),
+(1, 4,'EJECUCIÓN'),
+(1, 5,'EJECUCIÓN'),
+(1, 6,'EJECUCIÓN'),
+(1, 7,'EVALUACIÓN');
 

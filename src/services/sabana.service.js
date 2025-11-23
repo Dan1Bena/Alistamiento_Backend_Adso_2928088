@@ -32,8 +32,8 @@ class SabanaService {
       const [trimestres] = await db.query(
         `SELECT t.id_trimestre 
          FROM trimestre t
-         JOIN planeacion_pedagogica pp ON t.id_planeacion = pp.id_planeacion
-         WHERE pp.id_ficha = ?`,
+         LEFT JOIN trimestre t ON rt.id_trimestre = t.id_trimestre
+         WHERE rt.id_ficha = ?`,
         [id_ficha]
       );
 
@@ -192,29 +192,15 @@ class SabanaService {
    * Asigna un RAP a un trimestre usando el procedimiento almacenado
    * @param {number} id_rap - ID del RAP
    * @param {number} id_trimestre - ID del trimestre
-   * @returns {Promise<Object>} Resultado de la asignación
+   * @param {number} id_ficha - ID de la ficha
+   * @returns {Promise<Object>} Registro recién creado o actualizado
    */
-  async asignarRapTrimestre(id_rap, id_trimestre) {
+  async asignarRapTrimestre(id_rap, id_trimestre, id_ficha) {
     try {
-      // Llamar al procedimiento almacenado
-      await db.query('CALL asignar_rap_trimestre(?, ?)', [id_rap, id_trimestre]);
+      // Llamar al procedimiento almacenado con id_ficha
+      await db.query('CALL asignar_rap_trimestre(?, ?, ?)', [id_rap, id_trimestre, id_ficha]);
 
-      // Obtener los datos actualizados del RAP asignado
-      const [resultados] = await db.query(
-        `SELECT 
-          r.id_rap,
-          r.codigo,
-          r.denominacion,
-          rt.horas_trimestre,
-          rt.horas_semana,
-          rt.estado
-         FROM rap_trimestre rt
-         JOIN raps r ON rt.id_rap = r.id_rap
-         WHERE rt.id_rap = ? AND rt.id_trimestre = ?`,
-        [id_rap, id_trimestre]
-      );
-
-      return resultados[0] || null;
+      return true;
     } catch (error) {
       console.error('Error en asignarRapTrimestre:', error);
       throw error;
@@ -225,19 +211,139 @@ class SabanaService {
    * Quita un RAP de un trimestre usando el procedimiento almacenado
    * @param {number} id_rap - ID del RAP
    * @param {number} id_trimestre - ID del trimestre
+   * @param {number} id_ficha - ID de la ficha
    * @returns {Promise<boolean>} true si se quitó exitosamente
    */
-  async quitarRapTrimestre(id_rap, id_trimestre) {
+  async quitarRapTrimestre(id_rap, id_trimestre, id_ficha) {
     try {
-      // Llamar al procedimiento almacenado que quita el RAP
-      await db.query('CALL quitar_rap_trimestre(?, ?)', [id_rap, id_trimestre]);
-
-      // Recalcular horas del RAP después de quitarlo
-      await db.query('CALL recalcular_horas_rap(?)', [id_rap]);
+      // Llamar al procedimiento almacenado que quita el RAP y recalcula horas
+      await db.query('CALL quitar_rap_trimestre(?, ?, ?)', [id_rap, id_trimestre, id_ficha]);
 
       return true;
     } catch (error) {
       console.error('Error en quitarRapTrimestre:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Recalcula las horas de un RAP en una ficha específica
+   * @param {number} id_rap - ID del RAP
+   * @param {number} id_ficha - ID de la ficha
+   * @returns {Promise<boolean>} true si se recalculó exitosamente
+   */
+  async recalcularHorasRap(id_rap, id_ficha) {
+    try {
+      await db.query('CALL recalcular_horas_rap(?, ?)', [id_rap, id_ficha]);
+      return true;
+    } catch (error) {
+      console.error('Error en recalcularHorasRap:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtiene los trimestres de una ficha
+   * @param {number} id_ficha - ID de la ficha
+   * @returns {Promise<Array>} Lista de trimestres con id_trimestre, no_trimestre, fase
+   */
+  async obtenerTrimestresPorFicha(id_ficha) {
+    try {
+      const [trimestres] = await db.query(
+        `SELECT 
+          t.id_trimestre,
+          t.no_trimestre,
+          t.fase,
+          t.id_ficha
+        FROM trimestre t
+        WHERE t.id_ficha = ?
+        ORDER BY t.no_trimestre`,
+        [id_ficha]
+      );
+
+      return trimestres;
+    } catch (error) {
+      console.error('Error en obtenerTrimestresPorFicha:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Asigna un instructor a una tarjeta RAP-trimestre
+   * @param {number} id_rap_trimestre - ID del registro rap_trimestre
+   * @param {number} id_instructor - ID del instructor
+   * @returns {Promise<Object>} Registro actualizado
+   */
+  async asignarInstructor(id_rap_trimestre, id_instructor) {
+    try {
+      // Validar que el instructor existe y está activo
+      const [instructores] = await db.query(
+        `SELECT id_instructor, estado 
+         FROM instructores 
+         WHERE id_instructor = ?`,
+        [id_instructor]
+      );
+
+      if (instructores.length === 0) {
+        throw new Error('Instructor no encontrado');
+      }
+
+      if (instructores[0].estado !== 'Activo') {
+        throw new Error('El instructor no está activo');
+      }
+
+      // Actualizar el registro rap_trimestre
+      await db.query(
+        `UPDATE rap_trimestre 
+         SET id_instructor = ?, estado = COALESCE(estado, 'Planeado')
+         WHERE id_rap_trimestre = ?`,
+        [id_instructor, id_rap_trimestre]
+      );
+
+      // Obtener el registro actualizado
+      const [resultados] = await db.query(
+        `SELECT 
+          rt.id_rap_trimestre,
+          rt.id_rap,
+          rt.id_trimestre,
+          rt.id_ficha,
+          rt.horas_trimestre,
+          rt.horas_semana,
+          rt.estado,
+          rt.id_instructor,
+          i.nombre AS nombre_instructor
+         FROM rap_trimestre rt
+         LEFT JOIN instructores i ON rt.id_instructor = i.id_instructor
+         WHERE rt.id_rap_trimestre = ?`,
+        [id_rap_trimestre]
+      );
+
+      return resultados[0] || null;
+    } catch (error) {
+      console.error('Error en asignarInstructor:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Valida que un trimestre pertenece a una ficha
+   * @param {number} id_trimestre - ID del trimestre
+   * @param {number} id_ficha - ID de la ficha
+   * @returns {Promise<boolean>} true si el trimestre pertenece a la ficha
+   */
+  async validarTrimestrePerteneceFicha(id_trimestre, id_ficha) {
+    try {
+      const [resultados] = await db.query(
+        `SELECT COUNT(*) as count
+         FROM trimestre t
+         JOIN fichas f ON t.id_ficha = f.id_ficha
+         WHERE t.id_trimestre = ? AND f.id_ficha = ?`,
+        [id_trimestre, id_ficha]
+      );
+
+      return resultados[0].count > 0;
+    } catch (error) {
+      console.error('Error en validarTrimestrePerteneceFicha:', error);
       throw error;
     }
   }
@@ -261,7 +367,7 @@ class SabanaService {
 
       // La vista v_sabana_base ya incluye id_ficha, filtrar directamente
       const [resultados] = await db.query(
-        `SELECT * FROM v_sabana_base 
+        `SELECT * FROM v_sabana_base
          WHERE id_ficha = ?
          ORDER BY id_competencia, CAST(codigo_rap AS UNSIGNED), no_trimestre`,
         [id_ficha]
@@ -293,7 +399,7 @@ class SabanaService {
 
       // La vista v_sabana_matriz ya incluye id_ficha, filtrar directamente
       const [resultados] = await db.query(
-        `SELECT * FROM v_sabana_matriz 
+        `SELECT * FROM v_sabana_matriz
          WHERE id_ficha = ?
          ORDER BY id_competencia, CAST(codigo_rap AS UNSIGNED)`,
         [id_ficha]
