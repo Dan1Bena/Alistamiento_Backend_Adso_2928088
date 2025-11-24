@@ -34,7 +34,7 @@ class SabanaController {
       });
     } catch (error) {
       console.error('Error en obtenerRapsDisponibles:', error);
-      
+
       if (error.message === 'Ficha no encontrada' || error.message === 'La ficha no tiene un programa asociado') {
         return res.status(404).json({
           success: false,
@@ -83,7 +83,7 @@ class SabanaController {
       });
     } catch (error) {
       console.error('Error en obtenerRapsAsignados:', error);
-      
+
       if (error.message === 'El trimestre no pertenece a la ficha especificada') {
         return res.status(404).json({
           success: false,
@@ -104,116 +104,32 @@ class SabanaController {
    * Body: { id_rap, id_trimestre, id_ficha, move? (opcional) }
    */
   async asignarRap(req, res) {
-    const connection = await db.getConnection();
-    
     try {
       const { id_rap, id_trimestre, id_ficha, move } = req.body;
 
-      // Validaciones de entrada
-      if (!id_rap || isNaN(parseInt(id_rap))) {
-        return res.status(400).json({
-          success: false,
-          mensaje: 'ID de RAP inválido'
-        });
-      }
-
-      if (!id_trimestre || isNaN(parseInt(id_trimestre))) {
-        return res.status(400).json({
-          success: false,
-          mensaje: 'ID de trimestre inválido'
-        });
-      }
-
-      if (!id_ficha || isNaN(parseInt(id_ficha))) {
-        return res.status(400).json({
-          success: false,
-          mensaje: 'ID de ficha inválido'
-        });
-      }
-
+      // Validaciones...
       const idRap = parseInt(id_rap);
       const idTrimestre = parseInt(id_trimestre);
       const idFicha = parseInt(id_ficha);
 
-      // Validar que el RAP pertenece al programa de la ficha
-      const pertenecePrograma = await this.sabanaService.validarRapPertenecePrograma(
-        idRap,
-        idFicha
-      );
+      // Solo una llamada al procedure que maneja todo
+      await this.sabanaService.asignarRapTrimestre(idRap, idTrimestre, idFicha, move);
 
-      if (!pertenecePrograma) {
-        return res.status(400).json({
-          success: false,
-          mensaje: 'El RAP no pertenece al programa de esta ficha'
-        });
-      }
+      // Obtener sabana actualizada
+      const sabana = await this.sabanaService.obtenerSabanaMatriz(idFicha);
 
-      // Validar que el trimestre pertenece a la ficha
-      const trimestrePertenece = await this.sabanaService.validarTrimestrePerteneceFicha(
-        idTrimestre,
-        idFicha
-      );
+      return res.status(200).json({
+        success: true,
+        mensaje: 'RAP asignado exitosamente al trimestre',
+        sabana: sabana
+      });
 
-      if (!trimestrePertenece) {
-        return res.status(400).json({
-          success: false,
-          mensaje: 'El trimestre no pertenece a esta ficha'
-        });
-      }
-
-      // Iniciar transacción
-      await connection.beginTransaction();
-
-      try {
-        // Si move=true, eliminar asignaciones previas del RAP en la misma ficha
-        if (move === true) {
-          await connection.query(
-            `DELETE FROM rap_trimestre 
-             WHERE id_rap = ? AND id_ficha = ? AND id_trimestre != ?`,
-            [idRap, idFicha, idTrimestre]
-          );
-        }
-
-        // Asignar el RAP al trimestre
-        await this.sabanaService.asignarRapTrimestre(idRap, idTrimestre, idFicha);
-
-        // Recalcular horas del RAP
-        await this.sabanaService.recalcularHorasRap(idRap, idFicha);
-
-        // Confirmar transacción
-        await connection.commit();
-
-        // Obtener sabana matriz actualizada
-        const sabana = await this.sabanaService.obtenerSabanaMatriz(idFicha);
-
-        return res.status(200).json({
-          success: true,
-          mensaje: 'RAP asignado exitosamente al trimestre',
-          sabana: sabana
-        });
-      } catch (error) {
-        await connection.rollback();
-        throw error;
-      }
     } catch (error) {
       console.error('Error en asignarRap:', error);
-      
-      // Manejar errores de validación del procedimiento almacenado
-      if (error.message.includes('no pertenece') || 
-          error.message.includes('no existe') ||
-          error.message.includes('no tiene')) {
-        return res.status(400).json({
-          success: false,
-          mensaje: error.message
-        });
-      }
-
       return res.status(500).json({
         success: false,
         mensaje: 'Error al asignar RAP: ' + error.message
       });
-    } finally {
-      connection.release();
     }
   }
 
@@ -278,9 +194,9 @@ class SabanaController {
       });
     } catch (error) {
       console.error('Error en quitarRap:', error);
-      
-      if (error.message.includes('no existe') || 
-          error.message.includes('no pertenece')) {
+
+      if (error.message.includes('no existe') ||
+        error.message.includes('no pertenece')) {
         return res.status(400).json({
           success: false,
           mensaje: error.message
@@ -301,7 +217,7 @@ class SabanaController {
    */
   async actualizarHoras(req, res) {
     const connection = await db.getConnection();
-    
+
     try {
       const { id_rap_trimestre, horas_trimestre, id_ficha } = req.body;
 
@@ -385,7 +301,7 @@ class SabanaController {
       });
     } catch (error) {
       console.error('Error en actualizarHoras:', error);
-      
+
       return res.status(500).json({
         success: false,
         mensaje: 'Error al actualizar horas: ' + error.message
@@ -435,9 +351,9 @@ class SabanaController {
       });
     } catch (error) {
       console.error('Error en asignarInstructor:', error);
-      
-      if (error.message.includes('no encontrado') || 
-          error.message.includes('no está activo')) {
+
+      if (error.message.includes('no encontrado') ||
+        error.message.includes('no está activo')) {
         return res.status(400).json({
           success: false,
           mensaje: error.message
@@ -477,7 +393,7 @@ class SabanaController {
       });
     } catch (error) {
       console.error('Error en obtenerTrimestres:', error);
-      
+
       return res.status(500).json({
         success: false,
         mensaje: 'Error al obtener trimestres: ' + error.message
@@ -509,7 +425,7 @@ class SabanaController {
       });
     } catch (error) {
       console.error('Error en obtenerSabanaBase:', error);
-      
+
       if (error.message === 'Ficha no encontrada') {
         return res.status(404).json({
           success: false,
@@ -548,7 +464,7 @@ class SabanaController {
       });
     } catch (error) {
       console.error('Error en obtenerSabanaMatriz:', error);
-      
+
       if (error.message === 'Ficha no encontrada') {
         return res.status(404).json({
           success: false,
