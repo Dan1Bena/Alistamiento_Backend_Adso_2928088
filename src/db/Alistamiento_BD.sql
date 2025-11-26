@@ -42,7 +42,8 @@ CREATE TABLE instructores (
 CREATE TABLE instructor_ficha (
   id_instructor_ficha INT AUTO_INCREMENT PRIMARY KEY,
   id_instructor INT NOT NULL,
-  id_ficha INT NOT NULL
+  id_ficha INT NOT NULL,
+  rol varchar(15)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE programa_formacion (
@@ -395,6 +396,7 @@ SELECT
     r.duracion AS duracion_rap,
     t.no_trimestre,
     t.fase AS nombre_fase,
+    rt.id_rap_trimestre,
     rt.horas_trimestre,
     rt.horas_semana,
     rt.estado

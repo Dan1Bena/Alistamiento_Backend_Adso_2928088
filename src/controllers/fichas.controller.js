@@ -74,7 +74,7 @@ class FichasController {
     } = req.body;
 
     try {
-      // 1️⃣ INSERTAR FICHA
+      // 1 INSERTAR FICHA
       const [fichaResult] = await db.query(
         `INSERT INTO fichas 
       (id_programa, codigo_ficha, modalidad, jornada, ambiente, fecha_inicio, fecha_final, cantidad_trimestre) 
@@ -93,16 +93,7 @@ class FichasController {
 
       const id_ficha = fichaResult.insertId;
 
-      // 2️⃣ CREAR PLANEACIÓN PEDAGÓGICA
-      const [planResult] = await db.query(
-        `INSERT INTO planeacion_pedagogica (id_ficha, fecha_creacion)
-       VALUES (?, CURDATE())`,
-        [id_ficha]
-      );
-
-      const id_planeacion = planResult.insertId;
-
-      // 3️⃣ DEFINIR CANTIDAD DE TRIMESTRES SEGÚN JORNADA
+      // 2 DEFINIR CANTIDAD DE TRIMESTRES SEGÚN JORNADA
       let totalTrimestres = (jornada === "Diurna") ? 7 :
         (jornada === "Nocturna") ? 9 : 0;
 
@@ -110,7 +101,7 @@ class FichasController {
         return res.status(400).json({ error: "Jornada inválida" });
       }
 
-      // 4️⃣ INSERTAR TRIMESTRES CON FASE AUTOMÁTICA
+      // 3 INSERTAR TRIMESTRES CON FASE AUTOMÁTICA
       const fases = [
         "ANÁLISIS",
         "ANÁLISIS",
@@ -124,15 +115,15 @@ class FichasController {
       const valores = [];
       for (let t = 1; t <= totalTrimestres; t++) {
         const fase = fases[t - 1] || "EJECUCIÓN"; // si es nocturna (8 o 9) usa EJECUCIÓN
-        valores.push([id_planeacion, t, fase]);
+        valores.push([id_ficha, t, fase]);
       }
 
       await db.query(
-        "INSERT INTO trimestre (id_planeacion, no_trimestre, fase) VALUES ?",
+        "INSERT INTO trimestre (id_ficha, no_trimestre, fase) VALUES ?",
         [valores]
       );
 
-      // 5️⃣ INSERTAR GESTOR
+      // 5 INSERTAR GESTOR
       if (gestor) {
         await db.query(
           "INSERT INTO instructor_ficha (id_instructor, id_ficha, rol) VALUES (?, ?, 'Gestor')",
@@ -140,7 +131,7 @@ class FichasController {
         );
       }
 
-      // 6️⃣ INSERTAR INSTRUCTORES
+      // 6 INSERTAR INSTRUCTORES
       if (Array.isArray(instructores)) {
         for (const inst of instructores) {
           await db.query(
@@ -153,7 +144,6 @@ class FichasController {
       res.json({
         mensaje: "Ficha creada correctamente",
         id_ficha,
-        id_planeacion,
         trimestres_creados: totalTrimestres
       });
 
@@ -198,10 +188,10 @@ class FichasController {
         ]
       );
 
-      // 1️⃣ Eliminar instructores antiguos
+      // 1 Eliminar instructores antiguos
       await db.query("DELETE FROM instructor_ficha WHERE id_ficha = ?", [id]);
 
-      // 2️⃣ Insertar nuevo gestor
+      // 2 Insertar nuevo gestor
       if (gestor) {
         await db.query(
           "INSERT INTO instructor_ficha (id_instructor, id_ficha, rol) VALUES (?, ?, 'GESTOR')",
@@ -209,7 +199,7 @@ class FichasController {
         );
       }
 
-      // 3️⃣ Insertar instructores normales
+      // 3 Insertar instructores normales
       if (Array.isArray(instructores)) {
         for (const inst of instructores) {
           await db.query(

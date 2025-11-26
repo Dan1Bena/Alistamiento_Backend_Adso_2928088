@@ -161,11 +161,12 @@ class InstructoresController {
                 f.fecha_inicio,
                 f.fecha_final,
                 f.cantidad_trimestre,
+                p.id_programa,
                 p.nombre_programa,
                 p.codigo_programa
             FROM instructor_ficha inf
             INNER JOIN fichas f ON inf.id_ficha = f.id_ficha
-            LEFT JOIN programa_formacion p ON f.id_programa = p.id_programa
+            LEFT JOIN programa_formacion p ON p.id_programa = f.id_programa
             WHERE inf.id_instructor = ?`,
                 [id]
             );
