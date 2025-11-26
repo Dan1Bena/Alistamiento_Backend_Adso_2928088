@@ -60,64 +60,109 @@ class FichasController {
     }
   }
 
-async agregarFichas(req, res) {
-  const { 
-    id_programa, 
-    codigo_ficha, 
-    modalidad, 
-    jornada, 
-    ambiente, 
-    fecha_inicio, 
-    fecha_final, 
-    cantidad_trimestre, 
-    instructores 
-  } = req.body;
+  async agregarFichas(req, res) {
+    const {
+      id_programa,
+      codigo_ficha,
+      modalidad,
+      jornada,
+      ambiente,
+      fecha_inicio,
+      fecha_final,
+      cantidad_trimestre,
+      gestor,
+      instructores
+    } = req.body;
 
-  console.log("🔍 [BACKEND] Datos recibidos:", req.body);
-
-  try {
-    // 1. Crear la ficha
-    const [result] = await db.query(
-      `INSERT INTO fichas 
+    try {
+      // 1️⃣ INSERTAR FICHA
+      const [fichaResult] = await db.query(
+        `INSERT INTO fichas 
       (id_programa, codigo_ficha, modalidad, jornada, ambiente, fecha_inicio, fecha_final, cantidad_trimestre) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id_programa, 
-        codigo_ficha, 
-        modalidad, 
-        jornada, 
-        ambiente, 
-        fecha_inicio, 
-        fecha_final, 
-        cantidad_trimestre
-      ]
-    );
+        [
+          id_programa,
+          codigo_ficha,
+          modalidad,
+          jornada,
+          ambiente,
+          fecha_inicio,
+          fecha_final,
+          cantidad_trimestre
+        ]
+      );
 
-    const id_ficha = result.insertId;
-    console.log("🟩 Ficha creada con ID:", id_ficha);
+      const id_ficha = fichaResult.insertId;
 
-    // 2. Registrar instructores asignados
-    if (Array.isArray(instructores) && instructores.length > 0) {
-      for (const inst of instructores) {
+      // 2️⃣ CREAR PLANEACIÓN PEDAGÓGICA
+      const [planResult] = await db.query(
+        `INSERT INTO planeacion_pedagogica (id_ficha, fecha_creacion)
+       VALUES (?, CURDATE())`,
+        [id_ficha]
+      );
+
+      const id_planeacion = planResult.insertId;
+
+      // 3️⃣ DEFINIR CANTIDAD DE TRIMESTRES SEGÚN JORNADA
+      let totalTrimestres = (jornada === "Diurna") ? 7 :
+        (jornada === "Nocturna") ? 9 : 0;
+
+      if (totalTrimestres === 0) {
+        return res.status(400).json({ error: "Jornada inválida" });
+      }
+
+      // 4️⃣ INSERTAR TRIMESTRES CON FASE AUTOMÁTICA
+      const fases = [
+        "ANÁLISIS",
+        "ANÁLISIS",
+        "PLANEACIÓN",
+        "EJECUCIÓN",
+        "EJECUCIÓN",
+        "EJECUCIÓN",
+        "EVALUACIÓN"
+      ];
+
+      const valores = [];
+      for (let t = 1; t <= totalTrimestres; t++) {
+        const fase = fases[t - 1] || "EJECUCIÓN"; // si es nocturna (8 o 9) usa EJECUCIÓN
+        valores.push([id_planeacion, t, fase]);
+      }
+
+      await db.query(
+        "INSERT INTO trimestre (id_planeacion, no_trimestre, fase) VALUES ?",
+        [valores]
+      );
+
+      // 5️⃣ INSERTAR GESTOR
+      if (gestor) {
         await db.query(
-          "INSERT INTO instructor_ficha (id_instructor, id_ficha) VALUES (?, ?)",
-          [inst, id_ficha]
+          "INSERT INTO instructor_ficha (id_instructor, id_ficha, rol) VALUES (?, ?, 'Gestor')",
+          [gestor, id_ficha]
         );
       }
-      console.log("🟩 Instructores asignados correctamente");
+
+      // 6️⃣ INSERTAR INSTRUCTORES
+      if (Array.isArray(instructores)) {
+        for (const inst of instructores) {
+          await db.query(
+            "INSERT INTO instructor_ficha (id_instructor, id_ficha, rol) VALUES (?, ?, 'Instructor')",
+            [inst, id_ficha]
+          );
+        }
+      }
+
+      res.json({
+        mensaje: "Ficha creada correctamente",
+        id_ficha,
+        id_planeacion,
+        trimestres_creados: totalTrimestres
+      });
+
+    } catch (error) {
+      console.error("❌ Error al crear ficha:", error);
+      res.status(500).json({ error: "Error al crear ficha" });
     }
-
-    res.json({
-      mensaje: "Ficha creada correctamente",
-      id_ficha
-    });
-
-  } catch (error) {
-    console.error("❌ Error al crear ficha:", error);
-    res.status(500).json({ error: "Error al crear ficha" });
   }
-}
-
 
   async actualizarFicha(req, res) {
     const { id } = req.params;
@@ -130,24 +175,12 @@ async agregarFichas(req, res) {
       fecha_inicio,
       fecha_final,
       cantidad_trimestre,
-      id_instructor,
-      instructores
+      gestor,        // <-- quien es el gestor
+      instructores   // <-- instructores normales
     } = req.body;
 
     try {
-      console.log("🟦 [PUT] Datos recibidos:", req.body);
 
-      // 1. Verificar si existe
-      const [existe] = await db.query(
-        "SELECT id_ficha FROM fichas WHERE id_ficha = ?",
-        [id]
-      );
-
-      if (existe.length === 0) {
-        return res.status(404).json({ error: "Ficha no encontrada" });
-      }
-
-      // 2. Actualizar datos principales
       await db.query(
         `UPDATE fichas 
        SET id_programa=?, codigo_ficha=?, modalidad=?, jornada=?, ambiente=?, 
@@ -166,25 +199,25 @@ async agregarFichas(req, res) {
         ]
       );
 
-      console.log("🟩 Datos básicos de ficha actualizados");
+      // 1️⃣ Eliminar instructores antiguos
+      await db.query("DELETE FROM instructor_ficha WHERE id_ficha = ?", [id]);
 
-      // 3. Limpiar instructores actuales
-      await db.query(
-        "DELETE FROM instructor_ficha WHERE id_ficha = ?",
-        [id]
-      );
+      // 2️⃣ Insertar nuevo gestor
+      if (gestor) {
+        await db.query(
+          "INSERT INTO instructor_ficha (id_instructor, id_ficha, rol) VALUES (?, ?, 'GESTOR')",
+          [gestor, id]
+        );
+      }
 
-      console.log("🟩 Instructores antiguos eliminados");
-
-      // 4. Registrar nuevos instructores
-      if (Array.isArray(instructores) && instructores.length > 0) {
+      // 3️⃣ Insertar instructores normales
+      if (Array.isArray(instructores)) {
         for (const inst of instructores) {
           await db.query(
-            "INSERT INTO instructor_ficha (id_instructor, id_ficha) VALUES (?, ?)",
+            "INSERT INTO instructor_ficha (id_instructor, id_ficha, rol) VALUES (?, ?, 'INSTRUCTOR')",
             [inst, id]
           );
         }
-        console.log("🟩 Nuevos instructores asignados");
       }
 
       res.json({ mensaje: "Ficha actualizada correctamente" });
@@ -194,6 +227,7 @@ async agregarFichas(req, res) {
       res.status(500).json({ error: "Error al actualizar la ficha" });
     }
   }
+
 
   async obtenerFichasInstructor(req, res) {
     const { id_instructor } = req.params;
