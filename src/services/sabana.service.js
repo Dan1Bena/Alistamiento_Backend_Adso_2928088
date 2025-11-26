@@ -195,9 +195,19 @@ class SabanaService {
    * @param {number} id_ficha - ID de la ficha
    * @returns {Promise<Object>} Registro recién creado o actualizado
    */
-  async asignarRapTrimestre(id_rap, id_trimestre, id_ficha) {
+
+  async asignarRapTrimestre(id_rap, id_trimestre, id_ficha, move = false) {
     try {
-      // Llamar al procedimiento almacenado con id_ficha
+      // Si move=true, pasar un parámetro al procedure o manejarlo aquí
+      if (move) {
+        await db.query(
+          `DELETE FROM rap_trimestre 
+         WHERE id_rap = ? AND id_ficha = ? AND id_trimestre != ?`,
+          [id_rap, id_ficha, id_trimestre]
+        );
+      }
+
+      // Llamar al procedimiento almacenado
       await db.query('CALL asignar_rap_trimestre(?, ?, ?)', [id_rap, id_trimestre, id_ficha]);
 
       return true;
