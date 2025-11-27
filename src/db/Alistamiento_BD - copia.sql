@@ -138,7 +138,6 @@ CREATE TABLE actividad_rap (
   FOREIGN KEY (id_rap) REFERENCES raps(id_rap)
 );
 
-
 CREATE TABLE conocimiento_proceso (
   id_conocimiento_proceso INT AUTO_INCREMENT PRIMARY KEY,
   id_rap INT, -- FK a RAPs
@@ -160,17 +159,15 @@ CREATE TABLE criterios_evaluacion (
 CREATE TABLE rap_trimestre (
     id_rap_trimestre INT AUTO_INCREMENT PRIMARY KEY,
     id_rap INT NOT NULL,
-    id_ficha INT NOT NULL,
+    ficha INT,
     id_trimestre INT NOT NULL,
     horas_trimestre INT NULL,
     horas_semana FLOAT NULL,
     estado ENUM('Planeado', 'En curso', 'Finalizado') DEFAULT 'Planeado',
     
     FOREIGN KEY (id_rap) REFERENCES raps(id_rap) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (id_ficha) REFERENCES fichas(id_ficha) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (id_trimestre) REFERENCES trimestre(id_trimestre) ON DELETE CASCADE ON UPDATE CASCADE
 );
-
 
 -- ======================
 -- Agregar constraints FK (integridad referencial)
@@ -308,7 +305,7 @@ BEGIN
     SET v_horas_semana = v_horas_trimestre / 11;
 
     -- 5 Insertar o actualizar
-    INSERT INTO rap_trimestre (id_rap, id_trimestre, id_ficha, horas_trimestre, horas_semana, estado)
+    INSERT INTO rap_trimestre (id_rap, id_trimestre, ficha, horas_trimestre, horas_semana, estado)
     VALUES (p_id_rap, p_id_trimestre, p_id_ficha, v_horas_trimestre, v_horas_semana, 'Planeado')
     ON DUPLICATE KEY UPDATE
         horas_trimestre = v_horas_trimestre,
@@ -345,7 +342,7 @@ BEGIN
 
     -- Total trimestres asignados a ese RAP en esa ficha
     SELECT COUNT(*) INTO v_trimestres_competencia
-    FROM rap_trimestre
+    FROM trimestre
     WHERE id_rap = p_id_rap AND id_ficha = p_id_ficha;
 
     IF v_trimestres_competencia = 0 THEN
@@ -357,12 +354,11 @@ BEGIN
     SET
         horas_trimestre = v_duracion_competencia / v_raps_competencia / v_trimestres_competencia,
         horas_semana = (v_duracion_competencia / v_raps_competencia / v_trimestres_competencia) / 11
-    WHERE id_rap = p_id_rap AND id_ficha = p_id_ficha;
+    WHERE id_rap = p_id_rap AND ficha = p_id_ficha;
 END $$
 
-DELIMITER ;
+DELIMITER;
 
-DROP PROCEDURE IF EXISTS quitar_rap_trimestre;
 DELIMITER $$
 
 CREATE PROCEDURE quitar_rap_trimestre(
@@ -375,7 +371,7 @@ BEGIN
     DELETE FROM rap_trimestre
     WHERE id_rap = p_id_rap
       AND id_trimestre = p_id_trimestre
-      AND id_ficha = p_id_ficha;
+      AND ficha = p_id_ficha;
 
     -- Recalcular horas del RAP en esa ficha
     CALL recalcular_horas_rap(p_id_rap, p_id_ficha);
@@ -409,7 +405,7 @@ CROSS JOIN trimestre t
 -- Left join con asignaciones (puede ser NULL)
 LEFT JOIN rap_trimestre rt ON rt.id_rap = r.id_rap 
     AND rt.id_trimestre = t.id_trimestre 
-    AND rt.id_ficha = f.id_ficha
+    AND rt.ficha = f.id_ficha
 ORDER BY c.id_competencia, CAST(r.codigo AS UNSIGNED), r.id_rap;
 
 
@@ -450,6 +446,11 @@ ORDER BY
     id_competencia,
     CAST(codigo_rap AS UNSIGNED),
     id_rap;
+-- La vista v_sabana_matriz presenta los datos en formato matriz para análisis comparativo.
+
+-- ======================
+-- Verificación final
+-- ======================
 
 select * from programa_formacion;
 select * from proyectos;
@@ -474,5 +475,3 @@ INSERT INTO roles (nombre) VALUES ('Instructor');
 INSERT INTO roles (nombre) VALUES ('Gestor');
 INSERT INTO instructores (id_rol, nombre, email, contrasena, cedula, estado)
 VALUES (1, 'Admin', 'administracion@sena.edu.co', '$2a$10$tksuZTKKUcHP63p8QvD0LOPTPT8PmJeTw25tnrLIkPNpIsLg5e7G.', '1234567890', '1');
-
-
