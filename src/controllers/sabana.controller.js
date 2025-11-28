@@ -312,10 +312,10 @@ class SabanaController {
   }
 
   /**
-   * PATCH /api/sabana/assign-instructor
-   * Asigna un instructor a una tarjeta RAP-trimestre
-   * Body: { id_rap_trimestre, id_instructor }
-   */
+ * PATCH /api/sabana/assign-instructor
+ * Asigna un instructor a una tarjeta RAP-trimestre
+ * Body: { id_rap_trimestre, id_instructor }
+ */
   async asignarInstructor(req, res) {
     try {
       const { id_rap_trimestre, id_instructor } = req.body;
@@ -338,7 +338,7 @@ class SabanaController {
       const idRapTrimestre = parseInt(id_rap_trimestre);
       const idInstructor = parseInt(id_instructor);
 
-      // Asignar instructor (el servicio valida que esté activo)
+      // Asignar instructor
       const resultado = await this.sabanaService.asignarInstructor(
         idRapTrimestre,
         idInstructor
@@ -363,6 +363,74 @@ class SabanaController {
       return res.status(500).json({
         success: false,
         mensaje: 'Error al asignar instructor: ' + error.message
+      });
+    }
+  }
+
+  /**
+   * DELETE /api/sabana/unassign-instructor
+   * Desasigna un instructor de una tarjeta RAP-trimestre
+   * Body: { id_rap_trimestre }
+   */
+  async desasignarInstructor(req, res) {
+    try {
+      const { id_rap_trimestre } = req.body;
+
+      if (!id_rap_trimestre || isNaN(parseInt(id_rap_trimestre))) {
+        return res.status(400).json({
+          success: false,
+          mensaje: 'ID de rap_trimestre inválido'
+        });
+      }
+
+      const idRapTrimestre = parseInt(id_rap_trimestre);
+
+      // Desasignar instructor
+      const resultado = await this.sabanaService.desasignarInstructor(idRapTrimestre);
+
+      return res.json({
+        success: true,
+        mensaje: 'Instructor desasignado exitosamente',
+        data: resultado
+      });
+    } catch (error) {
+      console.error('Error en desasignarInstructor:', error);
+      return res.status(500).json({
+        success: false,
+        mensaje: 'Error al desasignar instructor: ' + error.message
+      });
+    }
+  }
+
+  /**
+   * GET /api/sabana/instructores/:id_ficha
+   * Obtiene los instructores activos para una ficha
+   */
+  async obtenerInstructoresPorFicha(req, res) {
+    try {
+      const { id_ficha } = req.params;
+
+      if (!id_ficha || isNaN(parseInt(id_ficha))) {
+        return res.status(400).json({
+          success: false,
+          mensaje: 'ID de ficha inválido'
+        });
+      }
+
+      const instructores = await this.sabanaService.obtenerInstructoresPorFicha(
+        parseInt(id_ficha)
+      );
+
+      return res.json({
+        success: true,
+        mensaje: 'Instructores obtenidos exitosamente',
+        data: instructores
+      });
+    } catch (error) {
+      console.error('Error en obtenerInstructoresPorFicha:', error);
+      return res.status(500).json({
+        success: false,
+        mensaje: 'Error al obtener instructores: ' + error.message
       });
     }
   }
@@ -508,10 +576,10 @@ class SabanaController {
 
     } catch (error) {
       console.error('Error obteniendo saberes:', error);
-      res.status(500).json({ 
-        success: false, 
+      res.status(500).json({
+        success: false,
         error: 'Error obteniendo saberes',
-        message: error.message 
+        message: error.message
       });
     }
   }
@@ -543,10 +611,10 @@ class SabanaController {
 
     } catch (error) {
       console.error('Error obteniendo procesos:', error);
-      res.status(500).json({ 
-        success: false, 
+      res.status(500).json({
+        success: false,
         error: 'Error obteniendo procesos',
-        message: error.message 
+        message: error.message
       });
     }
   }
@@ -578,10 +646,10 @@ class SabanaController {
 
     } catch (error) {
       console.error('Error obteniendo criterios:', error);
-      res.status(500).json({ 
-        success: false, 
+      res.status(500).json({
+        success: false,
         error: 'Error obteniendo criterios',
-        message: error.message 
+        message: error.message
       });
     }
   }

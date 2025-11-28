@@ -165,12 +165,40 @@ CREATE TABLE rap_trimestre (
     horas_trimestre INT NULL,
     horas_semana FLOAT NULL,
     estado ENUM('Planeado', 'En curso', 'Finalizado') DEFAULT 'Planeado',
+    instructor_asignado VARCHAR(50) NULL,
     
     FOREIGN KEY (id_rap) REFERENCES raps(id_rap) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (id_ficha) REFERENCES fichas(id_ficha) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (id_trimestre) REFERENCES trimestre(id_trimestre) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
+CREATE TABLE detalle_planeacion_pedagogica (
+  id_detalle INT AUTO_INCREMENT PRIMARY KEY,
+  id_planeacion INT NOT NULL,
+  id_rap INT NOT NULL,
+  codigo_rap VARCHAR(20),
+  nombre_rap TEXT,
+  competencia TEXT,
+  horas_trimestre INT,
+  -- Datos pedagógicos
+  actividades_aprendizaje TEXT,
+  duracion_directa INT,
+  duracion_independiente INT,
+  descripcion_evidencia TEXT,
+  estrategias_didacticas VARCHAR(100),
+  ambientes_aprendizaje VARCHAR(100),
+  materiales_formacion TEXT,
+  observaciones TEXT,
+  -- Información de saberes y criterios
+  saberes_conceptos TEXT,
+  saberes_proceso TEXT,
+  criterios_evaluacion TEXT,
+  -- Auditoría
+  fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (id_planeacion) REFERENCES planeacion_pedagogica(id_planeacion) ON DELETE CASCADE,
+  FOREIGN KEY (id_rap) REFERENCES raps(id_rap) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ======================
 -- Agregar constraints FK (integridad referencial)
@@ -468,6 +496,8 @@ SELECT * FROM trimestre;
 SELECT * FROM instructor_ficha;
 UPDATE instructores SET primer_acceso = 0 WHERE id_instructor = 1; -- Admin
 UPDATE instructores SET primer_acceso = 1 WHERE id_instructor = 2; -- Instructor nuevo
+
+delete from rap_trimestre;
 
 INSERT INTO roles (nombre) VALUES ('Administrador');
 INSERT INTO roles (nombre) VALUES ('Instructor');

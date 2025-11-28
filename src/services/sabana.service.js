@@ -279,18 +279,18 @@ class SabanaService {
   }
 
   /**
-   * Asigna un instructor a una tarjeta RAP-trimestre
-   * @param {number} id_rap_trimestre - ID del registro rap_trimestre
-   * @param {number} id_instructor - ID del instructor
-   * @returns {Promise<Object>} Registro actualizado
-   */
-  async asignarInstructor(id_rap_trimestre, id_instructor) {
+  * Asigna un instructor a una tarjeta RAP-trimestre
+  * @param {number} id_rap_trimestre - ID del registro rap_trimestre
+  * @param {number} id_instructor - ID del instructor
+  * @returns {Promise<Object>} Registro actualizado
+  */
+  async asignarInstructor(id_rap_trimestre, id_instructor ) {
     try {
       // Validar que el instructor existe y está activo
       const [instructores] = await db.query(
-        `SELECT id_instructor, estado 
-         FROM instructores 
-         WHERE id_instructor = ?`,
+        `SELECT id_instructor, nombre, estado 
+       FROM instructores 
+       WHERE id_instructor = ?`,
         [id_instructor]
       );
 
@@ -302,35 +302,96 @@ class SabanaService {
         throw new Error('El instructor no está activo');
       }
 
+      const instructor = instructores[0];
+
       // Actualizar el registro rap_trimestre
       await db.query(
         `UPDATE rap_trimestre 
-         SET id_instructor = ?, estado = COALESCE(estado, 'Planeado')
-         WHERE id_rap_trimestre = ?`,
-        [id_instructor, id_rap_trimestre]
+       SET instructor_asignado = ?
+       WHERE id_rap_trimestre = ?`,
+        [instructor.nombre, id_rap_trimestre]
       );
 
       // Obtener el registro actualizado
       const [resultados] = await db.query(
         `SELECT 
-          rt.id_rap_trimestre,
-          rt.id_rap,
-          rt.id_trimestre,
-          rt.id_ficha,
-          rt.horas_trimestre,
-          rt.horas_semana,
-          rt.estado,
-          rt.id_instructor,
-          i.nombre AS nombre_instructor
-         FROM rap_trimestre rt
-         LEFT JOIN instructores i ON rt.id_instructor = i.id_instructor
-         WHERE rt.id_rap_trimestre = ?`,
+        rt.id_rap_trimestre,
+        rt.id_rap,
+        rt.id_trimestre,
+        rt.id_ficha,
+        rt.horas_trimestre,
+        rt.horas_semana,
+        rt.estado,
+        rt.instructor_asignado
+       FROM rap_trimestre rt
+       WHERE rt.id_rap_trimestre = ?`,
         [id_rap_trimestre]
       );
 
       return resultados[0] || null;
     } catch (error) {
       console.error('Error en asignarInstructor:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtiene los instructores activos para una ficha específica
+   * @param {number} id_ficha - ID de la ficha
+   * @returns {Promise<Array>} Lista de instructores
+   */
+  async obtenerInstructoresPorFicha(id_ficha) {
+    try {
+      const [instructores] = await db.query(
+        `SELECT DISTINCT i.id_instructor, i.nombre, i.email, i.cedula
+       FROM instructores i
+       INNER JOIN instructor_ficha inf ON i.id_instructor = inf.id_instructor
+       WHERE inf.id_ficha = ? AND i.estado = 'Activo'
+       ORDER BY i.nombre`,
+        [id_ficha]
+      );
+
+      return instructores;
+    } catch (error) {
+      console.error('Error en obtenerInstructoresPorFicha:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Desasigna un instructor de un RAP-trimestre
+   * @param {number} id_rap_trimestre - ID del registro rap_trimestre
+   * @returns {Promise<Object>} Registro actualizado
+   */
+  async desasignarInstructor(id_rap_trimestre) {
+    try {
+      // Actualizar el registro rap_trimestre (establecer instructor_asignado a NULL)
+      await db.query(
+        `UPDATE rap_trimestre 
+       SET instructor_asignado = NULL
+       WHERE id_rap_trimestre = ?`,
+        [id_rap_trimestre]
+      );
+
+      // Obtener el registro actualizado
+      const [resultados] = await db.query(
+        `SELECT 
+        rt.id_rap_trimestre,
+        rt.id_rap,
+        rt.id_trimestre,
+        rt.id_ficha,
+        rt.horas_trimestre,
+        rt.horas_semana,
+        rt.estado,
+        rt.instructor_asignado
+       FROM rap_trimestre rt
+       WHERE rt.id_rap_trimestre = ?`,
+        [id_rap_trimestre]
+      );
+
+      return resultados[0] || null;
+    } catch (error) {
+      console.error('Error en desasignarInstructor:', error);
       throw error;
     }
   }
