@@ -478,7 +478,113 @@ class SabanaController {
       });
     }
   }
+
+  // 🔥 NUEVOS MÉTODOS PARA INFORMACIÓN COMPLETA DE RAPS
+
+  /**
+   * GET /api/raps/:id/saberes
+   * Obtener saberes de concepto de un RAP
+   */
+  async obtenerSaberes(req, res) {
+    try {
+      const { id } = req.params;
+
+      if (!id || isNaN(parseInt(id))) {
+        return res.status(400).json({
+          success: false,
+          mensaje: 'ID de RAP inválido'
+        });
+      }
+
+      const [saberes] = await db.execute(
+        'SELECT * FROM conocimiento_saber WHERE id_rap = ?',
+        [parseInt(id)]
+      );
+
+      res.json({
+        success: true,
+        data: saberes
+      });
+
+    } catch (error) {
+      console.error('Error obteniendo saberes:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Error obteniendo saberes',
+        message: error.message 
+      });
+    }
+  }
+
+  /**
+   * GET /api/raps/:id/procesos
+   * Obtener saberes de proceso de un RAP
+   */
+  async obtenerProcesos(req, res) {
+    try {
+      const { id } = req.params;
+
+      if (!id || isNaN(parseInt(id))) {
+        return res.status(400).json({
+          success: false,
+          mensaje: 'ID de RAP inválido'
+        });
+      }
+
+      const [procesos] = await db.execute(
+        'SELECT * FROM conocimiento_proceso WHERE id_rap = ?',
+        [parseInt(id)]
+      );
+
+      res.json({
+        success: true,
+        data: procesos
+      });
+
+    } catch (error) {
+      console.error('Error obteniendo procesos:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Error obteniendo procesos',
+        message: error.message 
+      });
+    }
+  }
+
+  /**
+   * GET /api/raps/:id/criterios
+   * Obtener criterios de evaluación de un RAP
+   */
+  async obtenerCriterios(req, res) {
+    try {
+      const { id } = req.params;
+
+      if (!id || isNaN(parseInt(id))) {
+        return res.status(400).json({
+          success: false,
+          mensaje: 'ID de RAP inválido'
+        });
+      }
+
+      const [criterios] = await db.execute(
+        'SELECT * FROM criterios_evaluacion WHERE id_rap = ?',
+        [parseInt(id)]
+      );
+
+      res.json({
+        success: true,
+        data: criterios
+      });
+
+    } catch (error) {
+      console.error('Error obteniendo criterios:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Error obteniendo criterios',
+        message: error.message 
+      });
+    }
+  }
 }
 
 module.exports = SabanaController;
-

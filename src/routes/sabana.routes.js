@@ -1,3 +1,4 @@
+// routes/sabana.routes.js
 const express = require('express');
 const SabanaController = require('../controllers/sabana.controller');
 
@@ -91,5 +92,20 @@ router.delete('/raps/quitar', (req, res) =>
   sabanaController.quitarRap(req, res)
 );
 
-module.exports = router;
+// 🔥 NUEVOS ENDPOINTS PARA INFORMACIÓN COMPLETA DE RAPS
+// Obtener saberes de concepto de un RAP
+router.get('/raps/:id/saberes', (req, res) => 
+  sabanaController.obtenerSaberes(req, res)
+);
 
+// Obtener saberes de proceso de un RAP
+router.get('/raps/:id/procesos', (req, res) => 
+  sabanaController.obtenerProcesos(req, res)
+);
+
+// Obtener criterios de evaluación de un RAP
+router.get('/raps/:id/criterios', (req, res) => 
+  sabanaController.obtenerCriterios(req, res)
+);
+
+module.exports = router;
