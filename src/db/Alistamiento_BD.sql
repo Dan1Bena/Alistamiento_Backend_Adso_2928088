@@ -279,6 +279,12 @@ ALTER TABLE conocimiento_saber
   ADD CONSTRAINT fk_consaber_rap
     FOREIGN KEY (id_rap) REFERENCES raps (id_rap)
     ON DELETE CASCADE ON UPDATE CASCADE;
+    
+ALTER TABLE rap_trimestre 
+ADD COLUMN id_instructor INT NULL AFTER instructor_asignado,
+ADD CONSTRAINT fk_rap_trimestre_instructor 
+    FOREIGN KEY (id_instructor) REFERENCES instructores(id_instructor) 
+    ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE criterios_evaluacion
   ADD CONSTRAINT fk_criterios_rap

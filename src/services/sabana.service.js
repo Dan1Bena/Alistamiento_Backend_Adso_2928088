@@ -284,37 +284,47 @@ class SabanaService {
   * @param {number} id_instructor - ID del instructor
   * @returns {Promise<Object>} Registro actualizado
   */
-  async asignarInstructor(id_rap_trimestre, id_instructor ) {
-    try {
-      // Validar que el instructor existe y está activo
-      const [instructores] = await db.query(
-        `SELECT id_instructor, nombre, estado 
+  async asignarInstructor(id_rap_trimestre, id_instructor) {
+  try {
+    console.log('🔄 asignarInstructor llamado con:', { id_rap_trimestre, id_instructor });
+    
+    // Si id_instructor es null o undefined, desasignar
+    if (id_instructor === null || id_instructor === undefined || id_instructor === '') {
+      return await this.desasignarInstructor(id_rap_trimestre);
+    }
+
+    // Validar que el instructor existe y está activo
+    const [instructores] = await db.query(
+      `SELECT id_instructor, nombre, estado 
        FROM instructores 
        WHERE id_instructor = ?`,
-        [id_instructor]
-      );
+      [id_instructor]
+    );
 
-      if (instructores.length === 0) {
-        throw new Error('Instructor no encontrado');
-      }
+    if (instructores.length === 0) {
+      throw new Error('Instructor no encontrado');
+    }
 
-      if (instructores[0].estado !== 'Activo') {
-        throw new Error('El instructor no está activo');
-      }
+    if (instructores[0].estado !== 'Activo') {
+      throw new Error('El instructor no está activo');
+    }
 
-      const instructor = instructores[0];
+    const instructor = instructores[0];
+    console.log('✅ Instructor encontrado:', instructor.nombre);
 
-      // Actualizar el registro rap_trimestre
-      await db.query(
-        `UPDATE rap_trimestre 
-       SET instructor_asignado = ?
+    // Actualizar el registro rap_trimestre
+    await db.query(
+      `UPDATE rap_trimestre 
+       SET instructor_asignado = ?, id_instructor = ?
        WHERE id_rap_trimestre = ?`,
-        [instructor.nombre, id_rap_trimestre]
-      );
+      [instructor.nombre, id_instructor, id_rap_trimestre]
+    );
 
-      // Obtener el registro actualizado
-      const [resultados] = await db.query(
-        `SELECT 
+    console.log('✅ Instructor asignado correctamente');
+
+    // Obtener el registro actualizado
+    const [resultados] = await db.query(
+      `SELECT 
         rt.id_rap_trimestre,
         rt.id_rap,
         rt.id_trimestre,
@@ -322,18 +332,19 @@ class SabanaService {
         rt.horas_trimestre,
         rt.horas_semana,
         rt.estado,
-        rt.instructor_asignado
+        rt.instructor_asignado,
+        rt.id_instructor
        FROM rap_trimestre rt
        WHERE rt.id_rap_trimestre = ?`,
-        [id_rap_trimestre]
-      );
+      [id_rap_trimestre]
+    );
 
-      return resultados[0] || null;
-    } catch (error) {
-      console.error('Error en asignarInstructor:', error);
-      throw error;
-    }
+    return resultados[0] || null;
+  } catch (error) {
+    console.error('❌ Error en asignarInstructor:', error);
+    throw error;
   }
+}
 
   /**
    * Obtiene los instructores activos para una ficha específica
