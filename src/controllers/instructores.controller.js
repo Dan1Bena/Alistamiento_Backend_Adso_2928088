@@ -55,6 +55,22 @@ class InstructoresController {
     //Agregar Un Usuario Nuevo
     async agregarInstructor(req, res) {
         const { id_rol, nombre, email, contrasena, cedula, estado } = req.body;
+        // Validar cédula duplicada
+        const [cedulaExiste] = await db.query(
+            "SELECT id_instructor FROM instructores WHERE cedula = ?",
+            [cedula]
+        );
+
+        if (cedulaExiste.length > 0) {
+            return res.status(400).json({ error: "La cédula ya está registrada" });
+        }
+
+        // Validar formato de email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ error: "El correo no tiene un formato válido" });
+        }
 
         try {
             const hash = await bcrypt.hash(contrasena, 10);
@@ -87,6 +103,24 @@ class InstructoresController {
 
     //Actualizar Usuario (Opcionalmente Cambiar contrasena)
     async actualizarInstructor(req, res) {
+        // Validar cédula duplicada al actualizar
+        const { cedula } = req.body;
+
+        const [cedulaExiste] = await db.query(
+            "SELECT id_instructor FROM instructores WHERE cedula = ? AND id_instructor != ?",
+            [cedula, id]
+        );
+
+        if (cedulaExiste.length > 0) {
+            return res.status(400).json({ error: "La cédula ya está registrada por otro instructor" });
+        }
+
+        // Validar formato de email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ error: "El correo no tiene un formato válido" });
+        }
         const { id } = req.params;
         const { nombre, email, contrasena, id_rol } = req.body;
         try {
@@ -127,7 +161,8 @@ class InstructoresController {
                 `SELECT 
                 id_instructor,
                 nombre,
-                email
+                email,
+                cedula
             FROM instructores
             WHERE email = ?`,
                 [email]

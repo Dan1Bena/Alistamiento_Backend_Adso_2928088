@@ -64,6 +64,7 @@ class AuthController {
           id: instructor.id_instructor,
           nombre: instructor.nombre,
           email: instructor.email,
+          cedula: instructor.cedula,
           rol: instructor.rol || 'Sin rol',
           permisos: permisos.map(p => p.permiso),
           primer_acceso: primer_acceso // ✅ ENVIAR ESTE CAMPO
