@@ -7,13 +7,13 @@ class InstructoresController {
     async obtenerInstructores(req, res) {
         try {
             const [instructores] = await db.query(
-                `SELECT i.id_instructor, i.nombre, i.email, r.nombre AS rol,
+                `SELECT i.id_instructor, i.cedula, i.nombre, i.email, r.nombre AS rol,
                     COALESCE(GROUP_CONCAT(p.nombre ORDER BY p.id_permiso SEPARATOR ', '), 'Sin Permisos') AS permisos
                 FROM instructores i
                 LEFT JOIN roles r ON i.id_rol = r.id_rol
                 LEFT JOIN roles_permisos rp ON r.id_rol = rp.id_rol
                 LEFT JOIN permisos p ON rp.id_permiso = p.id_permiso
-                GROUP BY i.id_instructor, i.nombre, i.email, r.nombre`
+                GROUP BY i.id_instructor, i.cedula, i.nombre, i.email, r.nombre`
             );
 
             res.json(instructores);
@@ -31,6 +31,8 @@ class InstructoresController {
                 i.id_instructor,
                 i.nombre,
                 i.email,
+                i.cedula,
+                i.id_rol,
                 r.nombre AS rol,
                 COALESCE(GROUP_CONCAT(p.nombre SEPARATOR ', '), 'Sin Permisos') AS permisos
             FROM instructores i
@@ -55,6 +57,7 @@ class InstructoresController {
     //Agregar Un Usuario Nuevo
     async agregarInstructor(req, res) {
         const { id_rol, nombre, email, contrasena, cedula, estado } = req.body;
+        
         // Validar cédula duplicada
         const [cedulaExiste] = await db.query(
             "SELECT id_instructor FROM instructores WHERE cedula = ?",
@@ -100,45 +103,57 @@ class InstructoresController {
         }
     }
 
-
     //Actualizar Usuario (Opcionalmente Cambiar contrasena)
     async actualizarInstructor(req, res) {
+        // PRIMERO: Obtener los parámetros y el cuerpo de la solicitud
+        const { id } = req.params;  // ← ESTO DEBE IR PRIMERO
+        const { cedula, nombre, email, contrasena, id_rol, estado } = req.body;
+        
+        console.log("🔄 Actualizando instructor ID:", id);
+        console.log("📝 Datos recibidos:", { cedula, nombre, email, id_rol, estado });
+
         // Validar cédula duplicada al actualizar
-        const { cedula } = req.body;
+        try {
+            const [cedulaExiste] = await db.query(
+                "SELECT id_instructor FROM instructores WHERE cedula = ? AND id_instructor != ?",
+                [cedula, id]
+            );
 
-        const [cedulaExiste] = await db.query(
-            "SELECT id_instructor FROM instructores WHERE cedula = ? AND id_instructor != ?",
-            [cedula, id]
-        );
-
-        if (cedulaExiste.length > 0) {
-            return res.status(400).json({ error: "La cédula ya está registrada por otro instructor" });
+            if (cedulaExiste.length > 0) {
+                return res.status(400).json({ error: "La cédula ya está registrada por otro instructor" });
+            }
+        } catch (error) {
+            console.error("Error validando cédula:", error);
+            return res.status(500).json({ error: "Error al validar cédula" });
         }
 
         // Validar formato de email
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
         if (!emailRegex.test(email)) {
             return res.status(400).json({ error: "El correo no tiene un formato válido" });
         }
-        const { id } = req.params;
-        const { nombre, email, contrasena, id_rol } = req.body;
+
         try {
             if (contrasena && contrasena.trim() !== '') {
+                console.log("🔐 Cambiando contraseña también...");
                 const hash = await bcrypt.hash(contrasena, 10);
                 await db.query(
-                    'UPDATE instructores SET nombre = ?, email = ?, contrasena = ?, id_rol = ? WHERE id_instructor = ?',
-                    [nombre, email, hash, id_rol, id]
+                    'UPDATE instructores SET nombre = ?, email = ?, contrasena = ?, id_rol = ?, cedula = ?, estado = ? WHERE id_instructor = ?',
+                    [nombre, email, hash, id_rol, cedula, estado, id]
                 );
             } else {
+                console.log("🔄 Actualizando sin cambiar contraseña...");
                 await db.query(
-                    'UPDATE instructores SET nombre = ?, email = ?, id_rol = ? WHERE id_instructor = ?',
-                    [nombre, email, id_rol, id]
+                    'UPDATE instructores SET nombre = ?, email = ?, id_rol = ?, cedula = ?, estado = ? WHERE id_instructor = ?',
+                    [nombre, email, id_rol, cedula, estado, id]
                 );
             }
+            
+            console.log("✅ Instructor actualizado exitosamente");
             res.json({ mensaje: 'Instructor actualizado exitosamente' });
         } catch (error) {
-            res.status(500).json({ mensaje: 'Error al actualizar usuario' });
+            console.error("❌ Error al actualizar instructor:", error);
+            res.status(500).json({ mensaje: 'Error al actualizar usuario', error: error.message });
         }
     }
 
@@ -162,7 +177,8 @@ class InstructoresController {
                 id_instructor,
                 nombre,
                 email,
-                cedula
+                cedula,
+                id_rol
             FROM instructores
             WHERE email = ?`,
                 [email]
@@ -210,29 +226,6 @@ class InstructoresController {
         } catch (error) {
             console.error("❌ Error al obtener fichas del instructor:", error);
             res.status(500).json({ error: "Error al obtener fichas del instructor" });
-        }
-    }
-
-    async cambiarContrasena(req, res) {
-        try {
-            const { id } = req.params;
-            const { nueva_contrasena } = req.body;
-
-            if (!nueva_contrasena) {
-                return res.status(400).json({ error: 'La nueva contraseña es obligatoria' });
-            }
-
-            const hashed = await bcrypt.hash(nueva_contrasena, 10);
-
-            await db.query(
-                "UPDATE instructores SET contrasena = ? WHERE id_instructor = ?",
-                [hashed, id]
-            );
-
-            return res.json({ mensaje: 'Contraseña actualizada correctamente' });
-        } catch (error) {
-            console.error("Error al cambiar contraseña:", error);
-            res.status(500).json({ error: 'Error del servidor' });
         }
     }
 
