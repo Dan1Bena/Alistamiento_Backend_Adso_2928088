@@ -433,7 +433,8 @@ SELECT
     rt.id_rap_trimestre,
     rt.horas_trimestre,
     rt.horas_semana,
-    rt.estado
+    rt.estado,
+    i.nombre AS nombre_instructor
 FROM fichas f
 JOIN proyectos p ON f.id_programa = p.id_programa
 JOIN competencias c ON c.id_programa = p.id_programa
@@ -444,6 +445,7 @@ CROSS JOIN trimestre t
 LEFT JOIN rap_trimestre rt ON rt.id_rap = r.id_rap 
     AND rt.id_trimestre = t.id_trimestre 
     AND rt.id_ficha = f.id_ficha
+    AND rt.id_instructor = i.id_instructor
 ORDER BY c.id_competencia, CAST(r.codigo AS UNSIGNED), r.id_rap;
 
 
@@ -511,4 +513,6 @@ INSERT INTO roles (nombre) VALUES ('Gestor');
 INSERT INTO instructores (id_rol, nombre, email, contrasena, cedula, estado)
 VALUES (1, 'Admin', 'administracion@sena.edu.co', '$2a$10$tksuZTKKUcHP63p8QvD0LOPTPT8PmJeTw25tnrLIkPNpIsLg5e7G.', '1234567890', '1');
 
-
+UPDATE rap_trimestre 
+SET instructor_asignado = 'Daniel Martinez', id_instructor = 4
+WHERE id_rap_trimestre = 4;

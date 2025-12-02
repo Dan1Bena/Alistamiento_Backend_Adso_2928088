@@ -138,6 +138,7 @@ CREATE TABLE actividad_rap (
   FOREIGN KEY (id_rap) REFERENCES raps(id_rap)
 );
 
+
 CREATE TABLE conocimiento_proceso (
   id_conocimiento_proceso INT AUTO_INCREMENT PRIMARY KEY,
   id_rap INT, -- FK a RAPs
@@ -159,15 +160,45 @@ CREATE TABLE criterios_evaluacion (
 CREATE TABLE rap_trimestre (
     id_rap_trimestre INT AUTO_INCREMENT PRIMARY KEY,
     id_rap INT NOT NULL,
-    ficha INT,
+    id_ficha INT NOT NULL,
     id_trimestre INT NOT NULL,
     horas_trimestre INT NULL,
     horas_semana FLOAT NULL,
     estado ENUM('Planeado', 'En curso', 'Finalizado') DEFAULT 'Planeado',
+    instructor_asignado VARCHAR(50) NULL,
     
     FOREIGN KEY (id_rap) REFERENCES raps(id_rap) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (id_ficha) REFERENCES fichas(id_ficha) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (id_trimestre) REFERENCES trimestre(id_trimestre) ON DELETE CASCADE ON UPDATE CASCADE
 );
+
+CREATE TABLE detalle_planeacion_pedagogica (
+  id_detalle INT AUTO_INCREMENT PRIMARY KEY,
+  id_planeacion INT NOT NULL,
+  id_rap INT NOT NULL,
+  codigo_rap VARCHAR(20),
+  nombre_rap TEXT,
+  competencia TEXT,
+  horas_trimestre INT,
+  -- Datos pedagógicos
+  actividades_aprendizaje TEXT,
+  duracion_directa INT,
+  duracion_independiente INT,
+  descripcion_evidencia TEXT,
+  estrategias_didacticas VARCHAR(100),
+  ambientes_aprendizaje VARCHAR(100),
+  materiales_formacion TEXT,
+  observaciones TEXT,
+  -- Información de saberes y criterios
+  saberes_conceptos TEXT,
+  saberes_proceso TEXT,
+  criterios_evaluacion TEXT,
+  -- Auditoría
+  fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (id_planeacion) REFERENCES planeacion_pedagogica(id_planeacion) ON DELETE CASCADE,
+  FOREIGN KEY (id_rap) REFERENCES raps(id_rap) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ======================
 -- Agregar constraints FK (integridad referencial)
@@ -248,6 +279,12 @@ ALTER TABLE conocimiento_saber
   ADD CONSTRAINT fk_consaber_rap
     FOREIGN KEY (id_rap) REFERENCES raps (id_rap)
     ON DELETE CASCADE ON UPDATE CASCADE;
+    
+ALTER TABLE rap_trimestre 
+ADD COLUMN id_instructor INT NULL AFTER instructor_asignado,
+ADD CONSTRAINT fk_rap_trimestre_instructor 
+    FOREIGN KEY (id_instructor) REFERENCES instructores(id_instructor) 
+    ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE criterios_evaluacion
   ADD CONSTRAINT fk_criterios_rap
@@ -305,7 +342,7 @@ BEGIN
     SET v_horas_semana = v_horas_trimestre / 11;
 
     -- 5 Insertar o actualizar
-    INSERT INTO rap_trimestre (id_rap, id_trimestre, ficha, horas_trimestre, horas_semana, estado)
+    INSERT INTO rap_trimestre (id_rap, id_trimestre, id_ficha, horas_trimestre, horas_semana, estado)
     VALUES (p_id_rap, p_id_trimestre, p_id_ficha, v_horas_trimestre, v_horas_semana, 'Planeado')
     ON DUPLICATE KEY UPDATE
         horas_trimestre = v_horas_trimestre,
@@ -342,7 +379,7 @@ BEGIN
 
     -- Total trimestres asignados a ese RAP en esa ficha
     SELECT COUNT(*) INTO v_trimestres_competencia
-    FROM trimestre
+    FROM rap_trimestre
     WHERE id_rap = p_id_rap AND id_ficha = p_id_ficha;
 
     IF v_trimestres_competencia = 0 THEN
@@ -354,11 +391,12 @@ BEGIN
     SET
         horas_trimestre = v_duracion_competencia / v_raps_competencia / v_trimestres_competencia,
         horas_semana = (v_duracion_competencia / v_raps_competencia / v_trimestres_competencia) / 11
-    WHERE id_rap = p_id_rap AND ficha = p_id_ficha;
+    WHERE id_rap = p_id_rap AND id_ficha = p_id_ficha;
 END $$
 
-DELIMITER;
+DELIMITER ;
 
+DROP PROCEDURE IF EXISTS quitar_rap_trimestre;
 DELIMITER $$
 
 CREATE PROCEDURE quitar_rap_trimestre(
@@ -371,7 +409,7 @@ BEGIN
     DELETE FROM rap_trimestre
     WHERE id_rap = p_id_rap
       AND id_trimestre = p_id_trimestre
-      AND ficha = p_id_ficha;
+      AND id_ficha = p_id_ficha;
 
     -- Recalcular horas del RAP en esa ficha
     CALL recalcular_horas_rap(p_id_rap, p_id_ficha);
@@ -390,28 +428,34 @@ SELECT
     r.codigo AS codigo_rap,
     r.denominacion AS descripcion_rap,
     r.duracion AS duracion_rap,
+    t.id_trimestre,
     t.no_trimestre,
     t.fase AS nombre_fase,
+
     rt.id_rap_trimestre,
     rt.horas_trimestre,
     rt.horas_semana,
-    rt.estado
+    rt.estado,
+    rt.id_instructor,
+    instr.nombre AS instructor_asignado
+
 FROM fichas f
 JOIN proyectos p ON f.id_programa = p.id_programa
 JOIN competencias c ON c.id_programa = p.id_programa
 JOIN raps r ON r.id_competencia = c.id_competencia
--- CROSS JOIN con trimestres para crear todas las combinaciones RAP x Trimestre
 CROSS JOIN trimestre t
--- Left join con asignaciones (puede ser NULL)
-LEFT JOIN rap_trimestre rt ON rt.id_rap = r.id_rap 
-    AND rt.id_trimestre = t.id_trimestre 
-    AND rt.ficha = f.id_ficha
+LEFT JOIN rap_trimestre rt 
+       ON rt.id_rap = r.id_rap 
+      AND rt.id_trimestre = t.id_trimestre 
+      AND rt.id_ficha = f.id_ficha
+LEFT JOIN instructores instr 
+       ON instr.id_instructor = rt.id_instructor
 ORDER BY c.id_competencia, CAST(r.codigo AS UNSIGNED), r.id_rap;
 
 
 CREATE OR REPLACE VIEW v_sabana_matriz AS
 SELECT 
-	id_ficha,
+    id_ficha,
     id_competencia,
     codigo_norma,
     nombre_competencia,
@@ -421,36 +465,67 @@ SELECT
     descripcion_rap,
     duracion_rap,
 
+    -- TRIMESTRE 1
+    MAX(CASE WHEN no_trimestre = 1 THEN id_rap_trimestre END) AS t1_id_rap_trimestre,
+    MAX(CASE WHEN no_trimestre = 1 THEN id_instructor END) AS t1_id_instructor,
+    MAX(CASE WHEN no_trimestre = 1 THEN instructor_asignado END) AS t1_instructor,
     ROUND(MAX(CASE WHEN no_trimestre = 1 THEN horas_trimestre END)) AS t1_htrim,
     ROUND(MAX(CASE WHEN no_trimestre = 1 THEN horas_semana END)) AS t1_hsem,
+
+    -- TRIMESTRE 2
+    MAX(CASE WHEN no_trimestre = 2 THEN id_rap_trimestre END) AS t2_id_rap_trimestre,
+    MAX(CASE WHEN no_trimestre = 2 THEN id_instructor END) AS t2_id_instructor,
+    MAX(CASE WHEN no_trimestre = 2 THEN instructor_asignado END) AS t2_instructor,
     ROUND(MAX(CASE WHEN no_trimestre = 2 THEN horas_trimestre END)) AS t2_htrim,
     ROUND(MAX(CASE WHEN no_trimestre = 2 THEN horas_semana END)) AS t2_hsem,
+
+    -- TRIMESTRE 3
+    MAX(CASE WHEN no_trimestre = 3 THEN id_rap_trimestre END) AS t3_id_rap_trimestre,
+    MAX(CASE WHEN no_trimestre = 3 THEN id_instructor END) AS t3_id_instructor,
+    MAX(CASE WHEN no_trimestre = 3 THEN instructor_asignado END) AS t3_instructor,
     ROUND(MAX(CASE WHEN no_trimestre = 3 THEN horas_trimestre END)) AS t3_htrim,
     ROUND(MAX(CASE WHEN no_trimestre = 3 THEN horas_semana END)) AS t3_hsem,
+
+    -- TRIMESTRE 4
+    MAX(CASE WHEN no_trimestre = 4 THEN id_rap_trimestre END) AS t4_id_rap_trimestre,
+    MAX(CASE WHEN no_trimestre = 4 THEN id_instructor END) AS t4_id_instructor,
+    MAX(CASE WHEN no_trimestre = 4 THEN instructor_asignado END) AS t4_instructor,
     ROUND(MAX(CASE WHEN no_trimestre = 4 THEN horas_trimestre END)) AS t4_htrim,
     ROUND(MAX(CASE WHEN no_trimestre = 4 THEN horas_semana END)) AS t4_hsem,
+
+    -- TRIMESTRE 5
+    MAX(CASE WHEN no_trimestre = 5 THEN id_rap_trimestre END) AS t5_id_rap_trimestre,
+    MAX(CASE WHEN no_trimestre = 5 THEN id_instructor END) AS t5_id_instructor,
+    MAX(CASE WHEN no_trimestre = 5 THEN instructor_asignado END) AS t5_instructor,
     ROUND(MAX(CASE WHEN no_trimestre = 5 THEN horas_trimestre END)) AS t5_htrim,
     ROUND(MAX(CASE WHEN no_trimestre = 5 THEN horas_semana END)) AS t5_hsem,
+
+    -- TRIMESTRE 6
+    MAX(CASE WHEN no_trimestre = 6 THEN id_rap_trimestre END) AS t6_id_rap_trimestre,
+    MAX(CASE WHEN no_trimestre = 6 THEN id_instructor END) AS t6_id_instructor,
+    MAX(CASE WHEN no_trimestre = 6 THEN instructor_asignado END) AS t6_instructor,
     ROUND(MAX(CASE WHEN no_trimestre = 6 THEN horas_trimestre END)) AS t6_htrim,
     ROUND(MAX(CASE WHEN no_trimestre = 6 THEN horas_semana END)) AS t6_hsem,
+
+    -- TRIMESTRE 7
+    MAX(CASE WHEN no_trimestre = 7 THEN id_rap_trimestre END) AS t7_id_rap_trimestre,
+    MAX(CASE WHEN no_trimestre = 7 THEN id_instructor END) AS t7_id_instructor,
+    MAX(CASE WHEN no_trimestre = 7 THEN instructor_asignado END) AS t7_instructor,
     ROUND(MAX(CASE WHEN no_trimestre = 7 THEN horas_trimestre END)) AS t7_htrim,
     ROUND(MAX(CASE WHEN no_trimestre = 7 THEN horas_semana END)) AS t7_hsem,
 
+    -- TOTAL HORAS
     COALESCE(SUM(horas_trimestre), 0) AS total_horas
 
 FROM v_sabana_base
 GROUP BY 
-    id_ficha, id_competencia, codigo_norma, nombre_competencia, duracion_maxima,
-    id_rap, codigo_rap, descripcion_rap, duracion_rap
+    id_ficha, id_competencia, codigo_norma, nombre_competencia,
+    duracion_maxima, id_rap, codigo_rap, descripcion_rap, duracion_rap
+
 ORDER BY 
     id_competencia,
     CAST(codigo_rap AS UNSIGNED),
     id_rap;
--- La vista v_sabana_matriz presenta los datos en formato matriz para análisis comparativo.
-
--- ======================
--- Verificación final
--- ======================
 
 select * from programa_formacion;
 select * from proyectos;
@@ -470,8 +545,14 @@ SELECT * FROM instructor_ficha;
 UPDATE instructores SET primer_acceso = 0 WHERE id_instructor = 1; -- Admin
 UPDATE instructores SET primer_acceso = 1 WHERE id_instructor = 2; -- Instructor nuevo
 
+delete from rap_trimestre;
+
 INSERT INTO roles (nombre) VALUES ('Administrador');
 INSERT INTO roles (nombre) VALUES ('Instructor');
 INSERT INTO roles (nombre) VALUES ('Gestor');
 INSERT INTO instructores (id_rol, nombre, email, contrasena, cedula, estado)
 VALUES (1, 'Admin', 'administracion@sena.edu.co', '$2a$10$tksuZTKKUcHP63p8QvD0LOPTPT8PmJeTw25tnrLIkPNpIsLg5e7G.', '1234567890', '1');
+
+UPDATE rap_trimestre 
+SET instructor_asignado = 'Daniel Martinez', id_instructor = 4
+WHERE id_rap_trimestre = 4;
