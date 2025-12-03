@@ -307,7 +307,7 @@ BEGIN
     DECLARE v_horas_semana FLOAT DEFAULT 0;
     DECLARE v_id_competencia INT DEFAULT 0;
 
-    -- 1️ Obtener la competencia dueña del RAP
+    -- 1 Obtener la competencia dueña del RAP
     SELECT id_competencia INTO v_id_competencia
     FROM raps
     WHERE id_rap = p_id_rap;
@@ -318,17 +318,17 @@ BEGIN
         SET MESSAGE_TEXT = 'El RAP no tiene competencia asociada';
     END IF;
 
-    -- 2️ Traer duración total de la competencia
+    -- 2 Traer duración total de la competencia
     SELECT duracion_maxima INTO v_duracion_competencia
     FROM competencias
     WHERE id_competencia = v_id_competencia;
 
-    -- 3️ Número de RAPs que tiene esa competencia
+    -- 3 Número de RAPs que tiene esa competencia
     SELECT COUNT(*) INTO v_raps_competencia
     FROM raps
     WHERE id_competencia = v_id_competencia;
     
-    -- 4️ cuántos trimestres tiene asignado el RAP
+    -- 4 cuántos trimestres tiene asignado el RAP
     SELECT COUNT(*) INTO v_trimestres
     FROM rap_trimestre
     WHERE id_rap = p_id_rap;
@@ -337,11 +337,11 @@ BEGIN
         SET v_trimestres = 1;
     END IF;
 
-    -- 4️ Cálculo oficial SENA
+    -- 5 Cálculo oficial SENA
     SET v_horas_trimestre = v_duracion_competencia / v_raps_competencia / v_trimestres ;
     SET v_horas_semana = v_horas_trimestre / 11;
 
-    -- 5 Insertar o actualizar
+    -- 6 Insertar o actualizar
     INSERT INTO rap_trimestre (id_rap, id_trimestre, id_ficha, horas_trimestre, horas_semana, estado)
     VALUES (p_id_rap, p_id_trimestre, p_id_ficha, v_horas_trimestre, v_horas_semana, 'Planeado')
     ON DUPLICATE KEY UPDATE
@@ -465,55 +465,69 @@ SELECT
     descripcion_rap,
     duracion_rap,
 
-    -- TRIMESTRE 1
+     -- TRIMESTRE 1
     MAX(CASE WHEN no_trimestre = 1 THEN id_rap_trimestre END) AS t1_id_rap_trimestre,
-    MAX(CASE WHEN no_trimestre = 1 THEN id_instructor END) AS t1_id_instructor,
-    MAX(CASE WHEN no_trimestre = 1 THEN instructor_asignado END) AS t1_instructor,
     ROUND(MAX(CASE WHEN no_trimestre = 1 THEN horas_trimestre END)) AS t1_htrim,
     ROUND(MAX(CASE WHEN no_trimestre = 1 THEN horas_semana END)) AS t1_hsem,
+    MAX(CASE WHEN no_trimestre = 1 THEN id_instructor END) AS t1_id_instructor,
+    MAX(CASE WHEN no_trimestre = 1 THEN instructor_asignado END) AS t1_instructor,
 
     -- TRIMESTRE 2
     MAX(CASE WHEN no_trimestre = 2 THEN id_rap_trimestre END) AS t2_id_rap_trimestre,
-    MAX(CASE WHEN no_trimestre = 2 THEN id_instructor END) AS t2_id_instructor,
-    MAX(CASE WHEN no_trimestre = 2 THEN instructor_asignado END) AS t2_instructor,
     ROUND(MAX(CASE WHEN no_trimestre = 2 THEN horas_trimestre END)) AS t2_htrim,
     ROUND(MAX(CASE WHEN no_trimestre = 2 THEN horas_semana END)) AS t2_hsem,
+    MAX(CASE WHEN no_trimestre = 2 THEN id_instructor END) AS t2_id_instructor,
+    MAX(CASE WHEN no_trimestre = 2 THEN instructor_asignado END) AS t2_instructor,
 
     -- TRIMESTRE 3
     MAX(CASE WHEN no_trimestre = 3 THEN id_rap_trimestre END) AS t3_id_rap_trimestre,
-    MAX(CASE WHEN no_trimestre = 3 THEN id_instructor END) AS t3_id_instructor,
-    MAX(CASE WHEN no_trimestre = 3 THEN instructor_asignado END) AS t3_instructor,
     ROUND(MAX(CASE WHEN no_trimestre = 3 THEN horas_trimestre END)) AS t3_htrim,
     ROUND(MAX(CASE WHEN no_trimestre = 3 THEN horas_semana END)) AS t3_hsem,
+    MAX(CASE WHEN no_trimestre = 3 THEN id_instructor END) AS t3_id_instructor,
+    MAX(CASE WHEN no_trimestre = 3 THEN instructor_asignado END) AS t3_instructor,
 
     -- TRIMESTRE 4
     MAX(CASE WHEN no_trimestre = 4 THEN id_rap_trimestre END) AS t4_id_rap_trimestre,
-    MAX(CASE WHEN no_trimestre = 4 THEN id_instructor END) AS t4_id_instructor,
-    MAX(CASE WHEN no_trimestre = 4 THEN instructor_asignado END) AS t4_instructor,
     ROUND(MAX(CASE WHEN no_trimestre = 4 THEN horas_trimestre END)) AS t4_htrim,
     ROUND(MAX(CASE WHEN no_trimestre = 4 THEN horas_semana END)) AS t4_hsem,
+    MAX(CASE WHEN no_trimestre = 4 THEN id_instructor END) AS t4_id_instructor,
+    MAX(CASE WHEN no_trimestre = 4 THEN instructor_asignado END) AS t4_instructor,
 
     -- TRIMESTRE 5
     MAX(CASE WHEN no_trimestre = 5 THEN id_rap_trimestre END) AS t5_id_rap_trimestre,
-    MAX(CASE WHEN no_trimestre = 5 THEN id_instructor END) AS t5_id_instructor,
-    MAX(CASE WHEN no_trimestre = 5 THEN instructor_asignado END) AS t5_instructor,
     ROUND(MAX(CASE WHEN no_trimestre = 5 THEN horas_trimestre END)) AS t5_htrim,
     ROUND(MAX(CASE WHEN no_trimestre = 5 THEN horas_semana END)) AS t5_hsem,
+    MAX(CASE WHEN no_trimestre = 5 THEN id_instructor END) AS t5_id_instructor,
+    MAX(CASE WHEN no_trimestre = 5 THEN instructor_asignado END) AS t5_instructor,
 
     -- TRIMESTRE 6
     MAX(CASE WHEN no_trimestre = 6 THEN id_rap_trimestre END) AS t6_id_rap_trimestre,
-    MAX(CASE WHEN no_trimestre = 6 THEN id_instructor END) AS t6_id_instructor,
-    MAX(CASE WHEN no_trimestre = 6 THEN instructor_asignado END) AS t6_instructor,
     ROUND(MAX(CASE WHEN no_trimestre = 6 THEN horas_trimestre END)) AS t6_htrim,
     ROUND(MAX(CASE WHEN no_trimestre = 6 THEN horas_semana END)) AS t6_hsem,
+    MAX(CASE WHEN no_trimestre = 6 THEN id_instructor END) AS t6_id_instructor,
+    MAX(CASE WHEN no_trimestre = 6 THEN instructor_asignado END) AS t6_instructor,
 
     -- TRIMESTRE 7
     MAX(CASE WHEN no_trimestre = 7 THEN id_rap_trimestre END) AS t7_id_rap_trimestre,
-    MAX(CASE WHEN no_trimestre = 7 THEN id_instructor END) AS t7_id_instructor,
-    MAX(CASE WHEN no_trimestre = 7 THEN instructor_asignado END) AS t7_instructor,
     ROUND(MAX(CASE WHEN no_trimestre = 7 THEN horas_trimestre END)) AS t7_htrim,
     ROUND(MAX(CASE WHEN no_trimestre = 7 THEN horas_semana END)) AS t7_hsem,
+    MAX(CASE WHEN no_trimestre = 7 THEN id_instructor END) AS t7_id_instructor,
+    MAX(CASE WHEN no_trimestre = 7 THEN instructor_asignado END) AS t7_instructor,
 
+    -- TRIMESTRE 8 (NOCTURNA)
+    MAX(CASE WHEN no_trimestre = 8 THEN id_rap_trimestre END) AS t8_id_rap_trimestre,
+    ROUND(MAX(CASE WHEN no_trimestre = 8 THEN horas_trimestre END)) AS t8_htrim,
+    ROUND(MAX(CASE WHEN no_trimestre = 8 THEN horas_semana END)) AS t8_hsem,
+    MAX(CASE WHEN no_trimestre = 8 THEN id_instructor END) AS t8_id_instructor,
+    MAX(CASE WHEN no_trimestre = 8 THEN instructor_asignado END) AS t8_instructor,
+
+    -- TRIMESTRE 9 (NOCTURNA)
+    MAX(CASE WHEN no_trimestre = 9 THEN id_rap_trimestre END) AS t9_id_rap_trimestre,
+    ROUND(MAX(CASE WHEN no_trimestre = 9 THEN horas_trimestre END)) AS t9_htrim,
+    ROUND(MAX(CASE WHEN no_trimestre = 9 THEN horas_semana END)) AS t9_hsem,
+    MAX(CASE WHEN no_trimestre = 9 THEN id_instructor END) AS t9_id_instructor,
+    MAX(CASE WHEN no_trimestre = 9 THEN instructor_asignado END) AS t9_instructor,
+    
     -- TOTAL HORAS
     COALESCE(SUM(horas_trimestre), 0) AS total_horas
 
