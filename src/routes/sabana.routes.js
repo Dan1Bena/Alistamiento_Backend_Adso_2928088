@@ -53,6 +53,10 @@ router.patch('/sabana/update-hours', (req, res) =>
 // GESTIÓN DE INSTRUCTORES
 // ============================================
 
+router.patch('/sabana/assign-instructor', (req, res) =>
+  sabanaController.asignarInstructor(req, res)
+);
+
 router.delete('/sabana/unassign-instructor', (req, res) =>
   sabanaController.desasignarInstructor(req, res)
 );

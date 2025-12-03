@@ -1,4 +1,4 @@
-const db = require('../config/conexion_db');
+const db = require("../config/conexion_db");
 
 /**
  * Servicio para gestionar el alistamiento de RAPs (Resultados de Aprendizaje)
@@ -13,19 +13,16 @@ class SabanaService {
   async obtenerRapsDisponibles(id_ficha) {
     try {
       // Primero obtener el programa de la ficha
-      const [fichas] = await db.query(
-        `SELECT id_programa FROM fichas WHERE id_ficha = ?`,
-        [id_ficha]
-      );
+      const [fichas] = await db.query(`SELECT id_programa FROM fichas WHERE id_ficha = ?`, [id_ficha]);
 
       if (fichas.length === 0) {
-        throw new Error('Ficha no encontrada');
+        throw new Error("Ficha no encontrada");
       }
 
       const id_programa = fichas[0].id_programa;
 
       if (!id_programa) {
-        throw new Error('La ficha no tiene un programa asociado');
+        throw new Error("La ficha no tiene un programa asociado");
       }
 
       // Obtener todos los trimestres de la ficha
@@ -37,7 +34,7 @@ class SabanaService {
         [id_ficha]
       );
 
-      const ids_trimestres = trimestres.map(t => t.id_trimestre);
+      const ids_trimestres = trimestres.map((t) => t.id_trimestre);
 
       // Si no hay trimestres, retornar todos los RAPs del programa
       if (ids_trimestres.length === 0) {
@@ -61,7 +58,7 @@ class SabanaService {
 
       // Obtener RAPs del programa que NO están asignados a ningún trimestre de esta ficha
       // Construir placeholders para el array de trimestres
-      const placeholders = ids_trimestres.map(() => '?').join(',');
+      const placeholders = ids_trimestres.map(() => "?").join(",");
       const [raps] = await db.query(
         `SELECT 
           r.id_rap,
@@ -85,7 +82,7 @@ class SabanaService {
 
       return raps;
     } catch (error) {
-      console.error('Error en obtenerRapsDisponibles:', error);
+      console.error("Error en obtenerRapsDisponibles:", error);
       throw error;
     }
   }
@@ -108,7 +105,7 @@ class SabanaService {
       );
 
       if (trimestres.length === 0) {
-        throw new Error('El trimestre no pertenece a la ficha especificada');
+        throw new Error("El trimestre no pertenece a la ficha especificada");
       }
 
       // Obtener RAPs asignados al trimestre
@@ -137,7 +134,7 @@ class SabanaService {
 
       return raps;
     } catch (error) {
-      console.error('Error en obtenerRapsAsignados:', error);
+      console.error("Error en obtenerRapsAsignados:", error);
       throw error;
     }
   }
@@ -161,7 +158,7 @@ class SabanaService {
 
       return resultados[0].count > 0;
     } catch (error) {
-      console.error('Error en validarRapPertenecePrograma:', error);
+      console.error("Error en validarRapPertenecePrograma:", error);
       throw error;
     }
   }
@@ -183,7 +180,7 @@ class SabanaService {
 
       return resultados[0].count > 0;
     } catch (error) {
-      console.error('Error en validarRapYaAsignado:', error);
+      console.error("Error en validarRapYaAsignado:", error);
       throw error;
     }
   }
@@ -208,11 +205,11 @@ class SabanaService {
       }
 
       // Llamar al procedimiento almacenado
-      await db.query('CALL asignar_rap_trimestre(?, ?, ?)', [id_rap, id_trimestre, id_ficha]);
+      await db.query("CALL asignar_rap_trimestre(?, ?, ?)", [id_rap, id_trimestre, id_ficha]);
 
       return true;
     } catch (error) {
-      console.error('Error en asignarRapTrimestre:', error);
+      console.error("Error en asignarRapTrimestre:", error);
       throw error;
     }
   }
@@ -227,11 +224,11 @@ class SabanaService {
   async quitarRapTrimestre(id_rap, id_trimestre, id_ficha) {
     try {
       // Llamar al procedimiento almacenado que quita el RAP y recalcula horas
-      await db.query('CALL quitar_rap_trimestre(?, ?, ?)', [id_rap, id_trimestre, id_ficha]);
+      await db.query("CALL quitar_rap_trimestre(?, ?, ?)", [id_rap, id_trimestre, id_ficha]);
 
       return true;
     } catch (error) {
-      console.error('Error en quitarRapTrimestre:', error);
+      console.error("Error en quitarRapTrimestre:", error);
       throw error;
     }
   }
@@ -244,10 +241,10 @@ class SabanaService {
    */
   async recalcularHorasRap(id_rap, id_ficha) {
     try {
-      await db.query('CALL recalcular_horas_rap(?, ?)', [id_rap, id_ficha]);
+      await db.query("CALL recalcular_horas_rap(?, ?)", [id_rap, id_ficha]);
       return true;
     } catch (error) {
-      console.error('Error en recalcularHorasRap:', error);
+      console.error("Error en recalcularHorasRap:", error);
       throw error;
     }
   }
@@ -273,58 +270,58 @@ class SabanaService {
 
       return trimestres;
     } catch (error) {
-      console.error('Error en obtenerTrimestresPorFicha:', error);
+      console.error("Error en obtenerTrimestresPorFicha:", error);
       throw error;
     }
   }
 
   /**
-  * Asigna un instructor a una tarjeta RAP-trimestre
-  * @param {number} id_rap_trimestre - ID del registro rap_trimestre
-  * @param {number} id_instructor - ID del instructor
-  * @returns {Promise<Object>} Registro actualizado
-  */
+   * Asigna un instructor a una tarjeta RAP-trimestre
+   * @param {number} id_rap_trimestre - ID del registro rap_trimestre
+   * @param {number} id_instructor - ID del instructor
+   * @returns {Promise<Object>} Registro actualizado
+   */
   async asignarInstructor(id_rap_trimestre, id_instructor) {
-  try {
-    console.log('🔄 asignarInstructor llamado con:', { id_rap_trimestre, id_instructor });
-    
-    // Si id_instructor es null o undefined, desasignar
-    if (id_instructor === null || id_instructor === undefined || id_instructor === '') {
-      return await this.desasignarInstructor(id_rap_trimestre);
-    }
+    try {
+      console.log("🔄 asignarInstructor llamado con:", { id_rap_trimestre, id_instructor });
 
-    // Validar que el instructor existe y está activo
-    const [instructores] = await db.query(
-      `SELECT id_instructor, nombre, estado 
+      // Si id_instructor es null o undefined, desasignar
+      if (id_instructor === null || id_instructor === undefined || id_instructor === "") {
+        return await this.desasignarInstructor(id_rap_trimestre);
+      }
+
+      // Validar que el instructor existe y está activo
+      const [instructores] = await db.query(
+        `SELECT id_instructor, nombre, estado 
        FROM instructores 
        WHERE id_instructor = ?`,
-      [id_instructor]
-    );
+        [id_instructor]
+      );
 
-    if (instructores.length === 0) {
-      throw new Error('Instructor no encontrado');
-    }
+      if (instructores.length === 0) {
+        throw new Error("Instructor no encontrado");
+      }
 
-    if (instructores[0].estado !== 'Activo') {
-      throw new Error('El instructor no está activo');
-    }
+      if (instructores[0].estado !== "Activo") {
+        throw new Error("El instructor no está activo");
+      }
 
-    const instructor = instructores[0];
-    console.log('✅ Instructor encontrado:', instructor.nombre);
+      const instructor = instructores[0];
+      console.log("✅ Instructor encontrado:", instructor.nombre);
 
-    // Actualizar el registro rap_trimestre
-    await db.query(
-      `UPDATE rap_trimestre 
+      // Actualizar el registro rap_trimestre
+      await db.query(
+        `UPDATE rap_trimestre 
        SET instructor_asignado = ?, id_instructor = ?
        WHERE id_rap_trimestre = ?`,
-      [instructor.nombre, id_instructor, id_rap_trimestre]
-    );
+        [instructor.nombre, id_instructor, id_rap_trimestre]
+      );
 
-    console.log('✅ Instructor asignado correctamente');
+      console.log("✅ Instructor asignado correctamente");
 
-    // Obtener el registro actualizado
-    const [resultados] = await db.query(
-      `SELECT 
+      // Obtener el registro actualizado
+      const [resultados] = await db.query(
+        `SELECT 
         rt.id_rap_trimestre,
         rt.id_rap,
         rt.id_trimestre,
@@ -336,15 +333,15 @@ class SabanaService {
         rt.id_instructor
        FROM rap_trimestre rt
        WHERE rt.id_rap_trimestre = ?`,
-      [id_rap_trimestre]
-    );
+        [id_rap_trimestre]
+      );
 
-    return resultados[0] || null;
-  } catch (error) {
-    console.error('❌ Error en asignarInstructor:', error);
-    throw error;
+      return resultados[0] || null;
+    } catch (error) {
+      console.error("❌ Error en asignarInstructor:", error);
+      throw error;
+    }
   }
-}
 
   /**
    * Obtiene los instructores activos para una ficha específica
@@ -364,7 +361,7 @@ class SabanaService {
 
       return instructores;
     } catch (error) {
-      console.error('Error en obtenerInstructoresPorFicha:', error);
+      console.error("Error en obtenerInstructoresPorFicha:", error);
       throw error;
     }
   }
@@ -376,25 +373,27 @@ class SabanaService {
    */
   async desasignarInstructor(id_rap_trimestre) {
     try {
-      // Actualizar el registro rap_trimestre (establecer instructor_asignado a NULL)
+      // Poner ambos campos a NULL: instructor_asignado (nombre) e id_instructor (FK)
       await db.query(
-        `UPDATE rap_trimestre 
-       SET instructor_asignado = NULL
+        `UPDATE rap_trimestre
+         SET instructor_asignado = NULL,
+             id_instructor = NULL
        WHERE id_rap_trimestre = ?`,
         [id_rap_trimestre]
       );
 
-      // Obtener el registro actualizado
+      // Devolver el registro actualizado (si existe)
       const [resultados] = await db.query(
         `SELECT 
-        rt.id_rap_trimestre,
-        rt.id_rap,
-        rt.id_trimestre,
-        rt.id_ficha,
-        rt.horas_trimestre,
-        rt.horas_semana,
-        rt.estado,
-        rt.instructor_asignado
+         rt.id_rap_trimestre,
+         rt.id_rap,
+         rt.id_trimestre,
+         rt.id_ficha,
+         rt.horas_trimestre,
+         rt.horas_semana,
+         rt.estado,
+         rt.instructor_asignado,
+         rt.id_instructor
        FROM rap_trimestre rt
        WHERE rt.id_rap_trimestre = ?`,
         [id_rap_trimestre]
@@ -402,7 +401,7 @@ class SabanaService {
 
       return resultados[0] || null;
     } catch (error) {
-      console.error('Error en desasignarInstructor:', error);
+      console.error("Error en desasignarInstructor:", error);
       throw error;
     }
   }
@@ -425,7 +424,7 @@ class SabanaService {
 
       return resultados[0].count > 0;
     } catch (error) {
-      console.error('Error en validarTrimestrePerteneceFicha:', error);
+      console.error("Error en validarTrimestrePerteneceFicha:", error);
       throw error;
     }
   }
@@ -438,13 +437,10 @@ class SabanaService {
   async obtenerSabanaBase(id_ficha) {
     try {
       // Validar que la ficha existe
-      const [fichas] = await db.query(
-        `SELECT id_ficha FROM fichas WHERE id_ficha = ?`,
-        [id_ficha]
-      );
+      const [fichas] = await db.query(`SELECT id_ficha FROM fichas WHERE id_ficha = ?`, [id_ficha]);
 
       if (fichas.length === 0) {
-        throw new Error('Ficha no encontrada');
+        throw new Error("Ficha no encontrada");
       }
 
       // La vista v_sabana_base ya incluye id_ficha, filtrar directamente
@@ -457,7 +453,7 @@ class SabanaService {
 
       return resultados;
     } catch (error) {
-      console.error('Error en obtenerSabanaBase:', error);
+      console.error("Error en obtenerSabanaBase:", error);
       throw error;
     }
   }
@@ -470,13 +466,10 @@ class SabanaService {
   async obtenerSabanaMatriz(id_ficha) {
     try {
       // Validar que la ficha existe
-      const [fichas] = await db.query(
-        `SELECT id_ficha FROM fichas WHERE id_ficha = ?`,
-        [id_ficha]
-      );
+      const [fichas] = await db.query(`SELECT id_ficha FROM fichas WHERE id_ficha = ?`, [id_ficha]);
 
       if (fichas.length === 0) {
-        throw new Error('Ficha no encontrada');
+        throw new Error("Ficha no encontrada");
       }
 
       // La vista v_sabana_matriz ya incluye id_ficha, filtrar directamente
@@ -489,11 +482,10 @@ class SabanaService {
 
       return resultados;
     } catch (error) {
-      console.error('Error en obtenerSabanaMatriz:', error);
+      console.error("Error en obtenerSabanaMatriz:", error);
       throw error;
     }
   }
 }
 
 module.exports = SabanaService;
-

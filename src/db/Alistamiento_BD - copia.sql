@@ -552,7 +552,3 @@ INSERT INTO roles (nombre) VALUES ('Instructor');
 INSERT INTO roles (nombre) VALUES ('Gestor');
 INSERT INTO instructores (id_rol, nombre, email, contrasena, cedula, estado)
 VALUES (1, 'Admin', 'administracion@sena.edu.co', '$2a$10$tksuZTKKUcHP63p8QvD0LOPTPT8PmJeTw25tnrLIkPNpIsLg5e7G.', '1234567890', '1');
-
-UPDATE rap_trimestre 
-SET instructor_asignado = 'Daniel Martinez', id_instructor = 4
-WHERE id_rap_trimestre = 4;
