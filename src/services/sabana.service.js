@@ -195,8 +195,8 @@ class SabanaService {
 
   async asignarRapTrimestre(id_rap, id_trimestre, id_ficha, move = false) {
     try {
-      // Si move=true, pasar un parámetro al procedure o manejarlo aquí
-      if (move) {
+      // Si es move=true -> eliminar solo el otro trimestre
+      if (move === true) {
         await db.query(
           `DELETE FROM rap_trimestre 
          WHERE id_rap = ? AND id_ficha = ? AND id_trimestre != ?`,
@@ -204,8 +204,12 @@ class SabanaService {
         );
       }
 
-      // Llamar al procedimiento almacenado
-      await db.query("CALL asignar_rap_trimestre(?, ?, ?)", [id_rap, id_trimestre, id_ficha]);
+      // El procedimiento almacenado hará insert o update sin borrar duplicados
+      await db.query("CALL asignar_rap_trimestre(?, ?, ?)", [
+        id_rap,
+        id_trimestre,
+        id_ficha,
+      ]);
 
       return true;
     } catch (error) {
