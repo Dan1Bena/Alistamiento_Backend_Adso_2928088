@@ -211,6 +211,14 @@ class SabanaService {
         id_ficha,
       ]);
 
+      // Recalcular horas para TODOS los trimestres del RAP
+      await db.query("CALL recalcular_horas_rap(?, ?)", [
+        id_rap,
+        id_ficha,
+      ]);
+
+      return true;
+
       return true;
     } catch (error) {
       console.error("Error en asignarRapTrimestre:", error);
