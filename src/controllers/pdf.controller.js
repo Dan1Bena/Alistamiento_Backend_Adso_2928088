@@ -3,6 +3,7 @@ const db = require("../config/conexion_db");
 const PythonService = require("../services/pythonService");
 const fs = require("fs");
 const path = require("path");
+const RapParser = require('../middleware/rap_parser');
 
 class PdfController {
   /**
@@ -94,9 +95,9 @@ class PdfController {
 
         for (const infoRap of resultado.unidadRaps) {
           const codigoCompetencia = infoRap.codigo_competencia;
-          const raps = infoRap.resultados_aprendizaje || [];
+          const rapsEstructurados = RapParser.procesarCompetencia(infoRap);
 
-          if (raps.length === 0) {
+          if (rapsEstructurados.length === 0) {
             console.warn(`Competencia ${codigoCompetencia} sin RAPs, saltando...`);
             continue;
           }
@@ -114,7 +115,7 @@ class PdfController {
 
           const idCompetencia = competenciaRow[0].id_competencia;
           const duracionMaxima = competenciaRow[0].duracion_maxima;
-          const numRaps = raps.length;
+          const numRaps = rapsEstructurados.length;
 
           // Calcular duración por RAP
           const duracionPorRap = duracionMaxima ? Math.round(duracionMaxima / numRaps) : null;
@@ -122,48 +123,43 @@ class PdfController {
           console.log(`\n ${codigoCompetencia}: ${numRaps} RAPs (${duracionMaxima}h total → ${duracionPorRap}h/RAP)`);
 
           // Insertar cada RAP
-          for (let i = 0; i < raps.length; i++) {
-            const rapTexto = raps[i];
-
-            // Extraer código del RAP (número al inicio)
-            const match = rapTexto.match(/^(\d{1,2})\s+(.+)/);
-            const codigoRap = match ? match[1].padStart(2, "0") : String(i + 1).padStart(2, "0");
-            const denominacionRap = match ? match[2].trim() : rapTexto.trim();
-
+          // Insertar cada RAP con sus conocimientos/criterios
+          for (const rap of rapsEstructurados) {
             // Insertar RAP
             const [resultRap] = await connection.query(
               `INSERT INTO raps (id_competencia, codigo, denominacion, duracion) 
-                 VALUES (?, ?, ?, ?)`,
-              [idCompetencia, codigoRap, denominacionRap, duracionPorRap]
+               VALUES (?, ?, ?, ?)`,
+              [idCompetencia, rap.codigo, rap.denominacion, duracionPorRap]
             );
 
             const idRap = resultRap.insertId;
             idsRaps.push(idRap);
 
-            console.log(`${codigoCompetencia}-${codigoRap} guardado (ID: ${idRap})`);
+            console.log(`  ✓ ${codigoCompetencia}-${rap.codigo}: ${rap.denominacion.substring(0, 60)}...`);
+            console.log(`  - Conocimientos Proceso: ${rap.conocimientos_proceso.length}`);
+            console.log(`  - Conocimientos Saber: ${rap.conocimientos_saber.length}`);
+            console.log(`  - Criterios: ${rap.criterios_evaluacion.length}`);
 
-            // Insertar Conocimientos de Proceso (como TEXTO único)
-            if (infoRap.conocimientos_proceso) {
-              await connection.query(`INSERT INTO conocimiento_proceso (id_rap, nombre) VALUES (?, ?)`, [
-                idRap,
-                infoRap.conocimientos_proceso,
-              ]);
+            // INSERTAR COMO UN SOLO REGISTRO (si hay contenido)
+            if (rap.conocimientos_proceso && rap.conocimientos_proceso.trim()) {
+              await connection.query(
+                `INSERT INTO conocimiento_proceso (id_rap, nombre) VALUES (?, ?)`,
+                [idRap, rap.conocimientos_proceso]
+              );
             }
 
-            // Insertar Conocimientos del Saber (como TEXTO único)
-            if (infoRap.conocimientos_saber) {
-              await connection.query(`INSERT INTO conocimiento_saber (id_rap, nombre) VALUES (?, ?)`, [
-                idRap,
-                infoRap.conocimientos_saber,
-              ]);
+            if (rap.conocimientos_saber && rap.conocimientos_saber.trim()) {
+              await connection.query(
+                `INSERT INTO conocimiento_saber (id_rap, nombre) VALUES (?, ?)`,
+                [idRap, rap.conocimientos_saber]
+              );
             }
 
-            // Insertar Criterios de Evaluación (como TEXTO único)
-            if (infoRap.criterios_evaluacion) {
-              await connection.query(`INSERT INTO criterios_evaluacion (id_rap, nombre) VALUES (?, ?)`, [
-                idRap,
-                infoRap.criterios_evaluacion,
-              ]);
+            if (rap.criterios_evaluacion && rap.criterios_evaluacion.trim()) {
+              await connection.query(
+                `INSERT INTO criterios_evaluacion (id_rap, nombre) VALUES (?, ?)`,
+                [idRap, rap.criterios_evaluacion]
+              );
             }
           }
         }
@@ -218,7 +214,7 @@ class PdfController {
       console.log(`Procesando PDF del proyecto: ${pdfPath}`);
 
       const resultado = await PythonService.ejecutarScript(pdfPath, "proyecto");
-      const resultadoFases = await PythonService.ejecutarScript(pdfPath, "fases") 
+      const resultadoFases = await PythonService.ejecutarScript(pdfPath, "fases")
       const resultadoActividades = await PythonService.ejecutarScript(pdfPath, "actividades");
 
       fs.unlinkSync(pdfPath);
@@ -254,8 +250,8 @@ class PdfController {
         console.log(`Proyecto guardado con ID: ${idProyecto}`);
 
         if (resultadoFases.fases && resultadoFases.fases.length > 0) {
-          for(const fase of resultadoFases.fases) {
-              await connection.query(
+          for (const fase of resultadoFases.fases) {
+            await connection.query(
               `INSERT INTO fases (nombre) VALUES (?)`,
               [fase.nombre]
             );
@@ -265,47 +261,47 @@ class PdfController {
       }
 
       if (resultadoActividades.actividades && resultadoActividades.actividades.length > 0) {
-         // === GUARDAR ACTIVIDADES Y RELACIONES ===
+        // === GUARDAR ACTIVIDADES Y RELACIONES ===
         let actividadesGuardadas = 0;
         let relacionesGuardadas = 0;
 
         for (const act of resultadoActividades.actividades) {
-            // Insertar actividad
-            const [resultActividad] = await connection.query(
-                `INSERT INTO actividades_proyecto (fase, nombre_actividad) VALUES (?, ?)`,
-                [act.fase, act.nombre_actividad]
-            );
+          // Insertar actividad
+          const [resultActividad] = await connection.query(
+            `INSERT INTO actividades_proyecto (fase, nombre_actividad) VALUES (?, ?)`,
+            [act.fase, act.nombre_actividad]
+          );
 
-            const idActividad = resultActividad.insertId;
-            actividadesGuardadas++;
+          const idActividad = resultActividad.insertId;
+          actividadesGuardadas++;
 
-            // Relacionar con RAPs usando búsqueda por denominación
-            for (const [codigoRap, denominacion] of act.raps) {
-              // Buscar RAP por código Y denominación (búsqueda más precisa)
-              const [rapRow] = await connection.query(
-                `SELECT id_rap, denominacion
+          // Relacionar con RAPs usando búsqueda por denominación
+          for (const [codigoRap, denominacion] of act.raps) {
+            // Buscar RAP por código Y denominación (búsqueda más precisa)
+            const [rapRow] = await connection.query(
+              `SELECT id_rap, denominacion
                 FROM raps
                 WHERE codigo = ? 
                 AND denominacion LIKE ?
                 LIMIT 1`,
-                [codigoRap, `%${denominacion.substring(0, 30)}%`]
+              [codigoRap, `%${denominacion.substring(0, 30)}%`]
+            );
+
+            if (rapRow.length > 0) {
+              const idRap = rapRow[0].id_rap;
+
+              // Insertar la relación en la tabla:
+              await connection.query(
+                `INSERT INTO actividad_rap (id_actividad, id_rap) VALUES (?, ?)`,
+                [idActividad, idRap]
               );
 
-              if (rapRow.length > 0) {
-                const idRap = rapRow[0].id_rap;
-
-                // Insertar la relación en la tabla:
-                await connection.query(
-                  `INSERT INTO actividad_rap (id_actividad, id_rap) VALUES (?, ?)`,
-                  [idActividad, idRap]
-                );
-
-                relacionesGuardadas++;
-                console.log(`Relación: Actividad ${idActividad} ↔ RAP ${codigoRap}`);
-              } else {
-                console.warn(`RAP no encontrado:${codigoRap}`);
-              }
+              relacionesGuardadas++;
+              console.log(`Relación: Actividad ${idActividad} ↔ RAP ${codigoRap}`);
+            } else {
+              console.warn(`RAP no encontrado:${codigoRap}`);
             }
+          }
         }
         console.log(`\nResumen:`);
         console.log(` Actividades guardadas: ${actividadesGuardadas}`);
