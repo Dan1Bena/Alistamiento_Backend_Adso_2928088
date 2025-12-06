@@ -3,6 +3,7 @@ node_modules/
 package-lock.json
 
 #Archivos de entornos
+.venv/
 .env.local
 .entornos.*.local
 
@@ -36,8 +37,17 @@ coverage/
 uploads/*
 !uploads/.gitkeep
 
+# Ignorar carpetas de caché de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
 # Otros
 *.pid
 *.seed
 *.pid.lock
+t-forward
+tash
+
 
